@@ -32,14 +32,19 @@ AMBIANCE_PROMPTS = {
 
 
 async def tts_stream_chunks(voice_id: str, text: str, mood_str: str):
-    """Async generator — yields raw MP3 byte chunks from ElevenLabs TTS stream."""
+    """Async generator — yields raw PCM byte chunks (signed 16-bit, 22050 Hz, mono)."""
     settings = MOOD_VOICE_SETTINGS.get(Mood(mood_str), MOOD_VOICE_SETTINGS[Mood.NEUTRAL])
     async with httpx.AsyncClient(timeout=30) as client:
         async with client.stream(
             "POST",
             f"{ELEVENLABS_BASE}/text-to-speech/{voice_id}/stream",
             headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
-            json={"text": text, "model_id": "eleven_turbo_v2_5", "voice_settings": settings},
+            json={
+                "text": text,
+                "model_id": "eleven_turbo_v2_5",
+                "output_format": "pcm_22050",
+                "voice_settings": settings,
+            },
         ) as response:
             if response.status_code != 200:
                 error_body = await response.aread()
@@ -68,6 +73,7 @@ async def speak(req: VoiceRequest):
     payload = {
         "text": req.text,
         "model_id": "eleven_turbo_v2_5",  # lowest latency model
+        "output_format": "pcm_22050",
         "voice_settings": settings,
     }
 
@@ -90,7 +96,7 @@ async def speak(req: VoiceRequest):
 
     return StreamingResponse(
         stream_audio(),
-        media_type="audio/mpeg",
+        media_type="audio/L16",  # raw signed 16-bit PCM
         headers={"X-NPC-Mood": req.mood.value},
     )
 

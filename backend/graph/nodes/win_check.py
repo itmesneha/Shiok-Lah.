@@ -93,7 +93,7 @@ async def win_check(state: GameGraphState) -> dict:
         messages = [SystemMessage(content=prompt), HumanMessage(content=character_response)]
 
         logger.info("  Judging secret[%d]=%r ...", index, secret)
-        response = llm.invoke(messages)
+        response = await llm.ainvoke(messages)
         raw = response.content.strip()
         logger.info("  LLM raw response: %s", raw)
 

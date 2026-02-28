@@ -8,12 +8,12 @@
 [ext_resource type="Texture2D" uid="uid://dsboqgkri5g84" path="res://assets/worldBuilding/asian_food_resized.png" id="5_iywne"]
 [ext_resource type="Script" uid="uid://cynh5y4wsukts" path="res://scripts/uncle_robert_npc.gd" id="5_u5sy4"]
 [ext_resource type="Texture2D" uid="uid://cs2j2ysibrugx" path="res://assets/characters/uncleRobert/Subtle-breathing-ani.png" id="7_gee14"]
-[ext_resource type="FontFile" uid="uid://d1fx7ppepkjlv" path="res://assets/fonts/Minecraft.ttf" id="8_kvuet"]
 [ext_resource type="Texture2D" uid="uid://bf4jh7qa2iy0k" path="res://assets/characters/uncleAhKow/idle-1.png" id="9_0tnpc"]
 [ext_resource type="Script" uid="uid://ck4vued850sd5" path="res://scripts/uncle_ah_kow.gd" id="10_l2y6e"]
 [ext_resource type="Texture2D" uid="uid://dg3fdh5f6urh8" path="res://assets/characters/auntieSiti/idle-talking.png" id="11_5kse0"]
 [ext_resource type="Script" uid="uid://bkqurycwghna1" path="res://scripts/auntie_siti_npc.gd" id="12_9f5me"]
 [ext_resource type="AudioStream" uid="uid://cxx26apeq6oal" path="res://assets/background_score/swing_jazz.ogg" id="13_amb00"]
+[ext_resource type="Script" uid="uid://dv65f17sk0ifm" path="res://scripts/npc_hint_bubble.gd" id="14_hint0"]
 [ext_resource type="Texture2D" uid="uid://d2fugm4haauej" path="res://assets/characters/boyGrandma.png" id="15_ir15t"]
 [ext_resource type="Texture2D" uid="uid://c6khl0pm2ih15" path="res://assets/characters/Adam_idle_anim_16x16.png" id="16_ca42v"]
 [ext_resource type="Texture2D" uid="uid://c26npuknew8s" path="res://assets/characters/Bob_phone_16x16.png" id="17_rysoc"]
@@ -943,14 +943,6 @@ radius = 13.0
 [sub_resource type="CircleShape2D" id="CircleShape2D_u5sy4"]
 radius = 28.01785
 
-[sub_resource type="LabelSettings" id="LabelSettings_0tnpc"]
-font = ExtResource("8_kvuet")
-font_size = 9
-outline_size = 2
-outline_color = Color(0.07058824, 0.07058824, 0.07058824, 1)
-shadow_color = Color(0.07058824, 0.07058824, 0.07058824, 1)
-shadow_offset = Vector2(0.2, 0.2)
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_dinhu"]
 atlas = ExtResource("9_0tnpc")
 region = Rect2(0, 0, 36, 68)
@@ -1134,6 +1126,9 @@ animations = [{
 "name": &"default",
 "speed": 5.0
 }]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hint_area"]
+radius = 24.0
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_rysoc"]
 radius = 12.610529
@@ -1398,6 +1393,9 @@ stream = ExtResource("13_amb00")
 volume_db = -22.0
 autoplay = true
 
+[node name="HintOverlay" type="CanvasLayer" parent="." unique_id=208445612]
+layer = 10
+
 [node name="Player" parent="." unique_id=1189262612 instance=ExtResource("1_uwrxv")]
 top_level = true
 texture_filter = 1
@@ -1448,21 +1446,6 @@ collision_layer = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="UncleRobertNPC/Area2D" unique_id=1302312129]
 position = Vector2(0.5402527, 5.258301)
 shape = SubResource("CircleShape2D_u5sy4")
-
-[node name="InteractLabel" type="Label" parent="UncleRobertNPC" unique_id=1083899153]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -48.459747
-offset_top = -24.7417
-offset_right = 48.540253
-offset_bottom = -8.741699
-grow_horizontal = 2
-grow_vertical = 2
-text = "Press E to interact"
-label_settings = SubResource("LabelSettings_0tnpc")
 
 [node name="food for table stall 1" type="Node" parent="." unique_id=1905295452]
 
@@ -1867,21 +1850,6 @@ scale = Vector2(11.387216, 11.003596)
 [node name="CollisionShape2D" type="CollisionShape2D" parent="uncleAhKowNPC/Area2D" unique_id=253581649]
 shape = SubResource("CircleShape2D_0tnpc")
 
-[node name="InteractLabel" type="Label" parent="uncleAhKowNPC" unique_id=1677761324]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -38.0
-offset_top = -35.0
-offset_right = 59.0
-offset_bottom = -19.0
-grow_horizontal = 2
-grow_vertical = 2
-text = "Press E to interact"
-label_settings = SubResource("LabelSettings_0tnpc")
-
 [node name="auntieSitiNPC" type="CharacterBody2D" parent="." unique_id=954194387]
 position = Vector2(-248, 183)
 script = ExtResource("12_9f5me")
@@ -1903,31 +1871,26 @@ scale = Vector2(11.387216, 11.003596)
 [node name="CollisionShape2D" type="CollisionShape2D" parent="auntieSitiNPC/Area2D" unique_id=335030336]
 shape = SubResource("CircleShape2D_0tnpc")
 
-[node name="InteractLabel" type="Label" parent="auntieSitiNPC" unique_id=1397928327]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -38.0
-offset_top = -35.0
-offset_right = 59.0
-offset_bottom = -19.0
-grow_horizontal = 2
-grow_vertical = 2
-text = "Press E to interact"
-label_settings = SubResource("LabelSettings_0tnpc")
-
 [node name="boyGrandmaNPC" type="AnimatedSprite2D" parent="." unique_id=390948356]
-position = Vector2(-234, 88)
+position = Vector2(-271.3599, 29.800003)
 scale = Vector2(0.7200049, 0.6)
 sprite_frames = SubResource("SpriteFrames_js0lu")
 autoplay = "default"
 frame = 2
 frame_progress = 0.835398
 
+[node name="boyGrandmaHint" type="Node2D" parent="." unique_id=1366336153]
+position = Vector2(-271.3599, 29.800003)
+script = ExtResource("14_hint0")
+hint_text = "Uncle Robert's wok hei tastes… deeper than just soy."
+
+[node name="HintArea" type="Area2D" parent="boyGrandmaHint" unique_id=1509671838]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="boyGrandmaHint/HintArea" unique_id=281057148]
+shape = SubResource("CircleShape2D_hint_area")
+
 [node name="boyGrandmaBody" type="StaticBody2D" parent="." unique_id=704153809]
-position = Vector2(-234, 88)
+position = Vector2(-271.3599, 29.799997)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="boyGrandmaBody" unique_id=276197910]
 position = Vector2(0, 9.999999)
@@ -1942,6 +1905,16 @@ autoplay = "default"
 frame = 5
 frame_progress = 0.87646306
 
+[node name="sitiBoyHint" type="Node2D" parent="." unique_id=696196188]
+position = Vector2(-360, 206)
+script = ExtResource("14_hint0")
+hint_text = "Auntie Siti's believes the last step must be fresh. Never from a packet."
+
+[node name="HintArea" type="Area2D" parent="sitiBoyHint" unique_id=1691965161]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="sitiBoyHint/HintArea" unique_id=576983042]
+shape = SubResource("CircleShape2D_hint_area")
+
 [node name="sitiBoyBody" type="StaticBody2D" parent="." unique_id=1302366121]
 position = Vector2(-360, 206)
 
@@ -1955,6 +1928,16 @@ position = Vector2(-93, -49.999996)
 scale = Vector2(1.1511828, 1.1599987)
 sprite_frames = SubResource("SpriteFrames_mmvbu")
 autoplay = "default"
+
+[node name="phoneBoyHint" type="Node2D" parent="." unique_id=678273209]
+position = Vector2(-93, -49.999996)
+script = ExtResource("14_hint0")
+hint_text = "Ah Kow's vinegar isn’t just one kind."
+
+[node name="HintArea" type="Area2D" parent="phoneBoyHint" unique_id=1019659886]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="phoneBoyHint/HintArea" unique_id=1020468975]
+shape = SubResource("CircleShape2D_hint_area")
 
 [node name="phoneBoyBody" type="StaticBody2D" parent="." unique_id=1141445116]
 position = Vector2(-93, -49.999996)

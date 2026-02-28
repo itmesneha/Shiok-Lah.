@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://dg8ho100tk4fq" path="res://scripts/NPCDialogue.gd" id="1_8p1en"]
 [ext_resource type="PackedScene" path="res://scenes/MoodIndicator.tscn" id="2_8mcn1"]
 [ext_resource type="Texture2D" uid="uid://c3v04of4xccbu" path="res://assets/moods/16x16_emoji_asset_pack_v1.1.png" id="3_jd4t4"]
-[ext_resource type="FontFile" uid="uid://d1fx7ppepkjlv" path="res://assets/fonts/Minecraft.ttf" id="4_mcfont"]
+[ext_resource type="FontFile" uid="uid://d14j8f17cq2j" path="res://assets/fonts/Minecraft.ttf" id="4_mcfont"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_npc_name"]
 font = ExtResource("4_mcfont")

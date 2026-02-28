@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://2k4m2a5v1hg2"]
 
-[ext_resource type="Script" path="res://scripts/game_over_popup.gd" id="1_pop"]
-[ext_resource type="FontFile" path="res://assets/fonts/Minecraft.ttf" id="2_font"]
+[ext_resource type="Script" uid="uid://cqgk1fjsjiarm" path="res://scripts/game_over_popup.gd" id="1_pop"]
+[ext_resource type="FontFile" uid="uid://d14j8f17cq2j" path="res://assets/fonts/Minecraft.ttf" id="2_font"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font = ExtResource("2_font")

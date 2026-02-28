@@ -51,9 +51,11 @@ CURRENT STATE:
 RULES:
 - Respond ONLY with your in-character dialogue.
 - HARD LIMIT: maximum 2 sentences, maximum 35 words total.
-- No stage directions, markdown, emojis, bullet points, or brackets.
+- Output SPOKEN WORDS ONLY. Pure dialogue, nothing else.
+- NO asterisks, NO stage directions, NO action descriptions, NO emojis.
+- NO parentheses, NO brackets, NO markdown of any kind.
 - Do not repeat yourself.
-- No JSON, metadata, or out-of-character text.
+- No JSON or out-of-character text.
 - Do NOT break character.
 - Do NOT try to sell food or take orders."""
 
@@ -64,8 +66,9 @@ def _sanitize_character_reply(raw_reply: str, suspicion: float) -> str:
         return "Can lah, what you want to ask?"
 
     text = re.split(r"\n\s*\n", text, maxsplit=1)[0].strip()
-    text = re.sub(r"\([^)]*\)", "", text)
-    text = re.sub(r"\[[^\]]*\]", "", text)
+    text = re.sub(r"\*[^*]+\*", "", text)   # *stage directions*
+    text = re.sub(r"\([^)]*\)", "", text)   # (parentheticals)
+    text = re.sub(r"\[[^\]]*\]", "", text)  # [bracketed actions]
     text = re.sub(r"\s+", " ", text).strip()
 
     parts = re.split(r"(?<=[.!?])\s+", text)

@@ -1,66 +1,83 @@
-# backend/graph/nodes/load_state.py
 """
-Load game state from database into graph state.
+load_state node — first node in the graph.
+Loads game session + character bubble from DB.
+Handles character switching for clicks vs message validation.
 """
 
-from typing import Dict, Any
-from ...services.state_manager import get_game, get_bubble
-from ...models.npcs import get_npc
-from ..state import GameGraphState
+from graph.state import GameGraphState
+from services import state_manager, context_manager
 
 
-def load_state_node(state: GameGraphState) -> GameGraphState:
-    """
-    Load game and character state from database.
-    
-    Args:
-        state: Input state with session_id and character_id
-        
-    Returns:
-        State with loaded game data and character bubble
-    """
+def load_state(state: GameGraphState) -> dict:
     session_id = state["session_id"]
     character_id = state["character_id"]
-    
+    user_message = state.get("user_message")
+
     # Load game session
-    game_data = get_game(session_id)
-    
-    # Load character bubble
-    bubble_data = get_bubble(session_id, character_id)
-    
-    # Get NPC definition
-    npc = get_npc(character_id)
-    
-    # Calculate derived fields
-    first_visit = bubble_data.get("visit_count", 0) == 0
-    steps_away = None
-    if bubble_data.get("last_seen_step"):
-        steps_away = game_data["global_step"] - bubble_data["last_seen_step"]
-    
-    # Build updated state
-    updated_state = {
-        **state,
-        # Game state
-        "global_step": game_data["global_step"],
-        "max_steps": game_data["max_steps"],
-        "game_status": game_data["game_status"],
-        "secrets_found": game_data["secrets_found"],
-        "active_character": game_data["active_character"],
-        
-        # Character bubble state
-        "suspicion": bubble_data["suspicion"],
-        "mood": bubble_data["mood"],
-        "prev_mood": bubble_data.get("prev_mood"),
-        "history": bubble_data["history"],
-        "secret_extracted": bubble_data["secret_extracted"],
-        "visit_count": bubble_data["visit_count"],
-        "first_visit": first_visit,
-        "steps_away": steps_away,
-        
-        # NPC data for reference
-        "npc_name": npc["name"],
-        "npc_persona": npc["persona"],
-        "npc_secrets": npc["secrets"],
+    game = state_manager.get_game(session_id)
+    if not game:
+        return {"error": f"No game found for session {session_id}"}
+
+    result = {
+        "global_step": game["global_step"],
+        "max_steps": game["max_steps"],
+        "game_status": game["game_status"],
+        "secrets_found": game["secrets_found"],
+        "active_character": game["active_character"],
+        "error": None,
+        "game_over": game["game_status"] != "active",
+        "loss_reason": game.get("loss_reason"),
     }
-    
-    return updated_state
+
+    if user_message is None:
+        # ── CLICK MODE: user clicked a character ──
+        # Auto-exit previous character if switching
+        old_char = game["active_character"]
+        if old_char and old_char != character_id:
+            context_manager.exit_character(session_id, old_char, game["global_step"])
+
+        # Enter the new character
+        ctx = context_manager.enter_character(session_id, character_id, game["global_step"])
+        if not ctx:
+            return {**result, "error": f"Unknown character: {character_id}"}
+
+        # Set as active
+        state_manager.update_game(session_id, active_character=character_id)
+
+        result.update({
+            "active_character": character_id,
+            "suspicion": ctx["suspicion"],
+            "mood": ctx["mood"],
+            "history": ctx["history"],
+            "secret_extracted": ctx["secret_extracted"],
+            "visit_count": ctx["visit_count"],
+            "first_visit": ctx["first_visit"],
+            "steps_away": ctx["steps_away"],
+        })
+
+    else:
+        # ── MESSAGE MODE: user sent a message ──
+        if game["active_character"] != character_id:
+            return {**result, "error": "Not talking to this character. Call /talk first."}
+
+        # Increment step
+        new_step = state_manager.increment_step(session_id)
+        result["global_step"] = new_step
+
+        # Load bubble
+        bubble = state_manager.get_bubble(session_id, character_id)
+        if not bubble:
+            return {**result, "error": f"No bubble found for {character_id}"}
+
+        result.update({
+            "suspicion": bubble["suspicion"],
+            "mood": bubble["mood"],
+            "prev_mood": bubble.get("prev_mood"),
+            "history": bubble["history"],
+            "secret_extracted": bubble["secret_extracted"],
+            "visit_count": bubble["visit_count"],
+            "first_visit": False,
+            "steps_away": None,
+        })
+
+    return result

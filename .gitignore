@@ -1,0 +1,74 @@
+# ── Secrets ──────────────────────────────────────────────────────────────────
+.env
+# Keep .env.example — it's the template, safe to commit
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ── SQLite database ───────────────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ── uv ───────────────────────────────────────────────────────────────────────
+# uv.lock should be committed for reproducibility — do NOT ignore it
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Voice / audio assets ──────────────────────────────────────────────────────
+# voice_ids.json may contain API-generated IDs; ignore local overrides
+backend/voices/voice_ids.json
+*.mp3
+*.wav
+*.ogg
+*.opus
+
+# ── Godot ────────────────────────────────────────────────────────────────────
+# Godot 4 generated files
+.godot/
+*.import
+*.translation
+export_presets.cfg
+
+# Godot editor metadata (safe to ignore for most teams)
+.mono/
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

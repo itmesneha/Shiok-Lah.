@@ -1,99 +1,128 @@
-# backend/graph/nodes/suspicion_node.py
 """
-Suspicion evaluation node using Mistral LLM.
+suspicion_node — LLM agent that evaluates user intent.
+Returns structured JSON: {delta, reason, intent_category}.
+Runs in parallel with character_node.
 """
 
+from graph.state import GameGraphState
+from agents.llm import build_mistral_llm
+from models.npcs import get_npc
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from config import LLM as LC, SUSPICION as SC
 import json
 import re
-from ...agents.llm import get_suspicion_model
-from ...config import API
-from ..state import GameGraphState
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-def suspicion_node(state: GameGraphState) -> GameGraphState:
-    """
-    Evaluate player intent and calculate suspicion delta.
-    
-    Args:
-        state: Current game state
-        
-    Returns:
-        State with suspicion_delta, suspicion_reason, and intent_category
-    """
-    # Skip in click mode (no message to evaluate)
-    if state["user_message"] is None:
-        return {
-            **state,
-            "suspicion_delta": 0.0,
-            "suspicion_reason": "Click mode - no intent evaluation",
-            "intent_category": "neutral"
-        }
-    
-    # Get suspicion model
-    suspicion_llm = get_suspicion_model(API.MISTRAL_API_KEY)
-    
-    # Build evaluation prompt
-    history = state["history"][-5:]  # Last 5 exchanges
-    history_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in history])
-    
-    prompt = f"""Analyze the player's intent in this conversation.
-    
-    Current mood: {state['mood']}
-    Current suspicion: {state['suspicion']}
-    Character: {state['npc_name']}
-    
-    Conversation history:
-    {history_text}
-    
-    Player's latest message: {state['user_message']}
-    
-    Evaluate based on these categories:
-    - direct_probe: Directly asking about secret ingredients/techniques
-    - indirect_probe: Subtle questions trying to extract information
-    - casual: Normal conversation, no suspicious intent
-    - rapport: Building genuine connection/relationship
-    - deflection: Trying to distract or change subject
-    
-    Return JSON with:
-    - delta: 0-20 (how much to increase suspicion)
-    - reason: brief explanation
-    - intent_category: one of the above categories
-    
-    Example: {{"delta": 15, "reason": "Direct question about vinegar recipe", "intent_category": "direct_probe"}}"""
-    
-    # Generate evaluation
-    system_prompt = "You are a suspicion evaluation AI. Analyze player intent and return JSON."
-    evaluation_text = suspicion_llm.generate(
-        prompt=prompt,
-        system_message=system_prompt
-    )
-    
-    # Parse JSON with fallback
+def _build_system_prompt(character: dict, current_suspicion: float) -> str:
+    suspicion_pct = int(current_suspicion * 100)
+    return f"""You are a suspicion evaluator for a social deduction game set in a Singapore hawker centre.
+
+A player is talking to {character['name']}, a hawker stall owner who guards a cooking secret.
+Your job: read the player's latest message and output a suspicion delta (integer 0–20).
+
+CHARACTER: {character['name']} — {character['stall']} at {character['location']}.
+Their secret: "{', '.join(character['secrets'])}"
+
+CURRENT SUSPICION: {suspicion_pct}/100
+
+DETERMINING THE DELTA:
+Pick an integer from 0 to 20. Two factors should guide you:
+
+1. Player tone — how probing or aggressive is the message?
+   Friendly rapport / casual chat with no secret-hunting → near 0
+   Politely curious in a way that might hint at the secret → low single digits
+   Clearly fishing for ingredients, techniques, or the secret → mid range (8–13)
+   Blunt demands, rudeness, or direct requests for the secret → high range (14–20)
+
+2. Current suspicion level — a character already on edge reacts more strongly.
+   Low suspicion (0–10): character is relaxed; mild probing barely registers.
+   Mid suspicion (10–40): character notices; same tone hits harder.
+   High suspicion (40–80): character is wary; even a slight probe is alarming.
+   Very high suspicion (>80): character is on the verge; near-zero tolerance.
+
+Combine both signals to choose a single integer in [0, 20].
+Non-probing messages (rapport, casual small talk, genuine deflection) should produce 0.
+
+Also classify the message into exactly one intent category:
+- "direct_probe"   — blunt demands, rudeness, explicit requests for the secret
+- "indirect_probe" — polite but clearly fishing for ingredients / techniques
+- "casual"         — ordinary conversation unrelated to the secret
+- "rapport"        — genuine bonding, compliments, cultural connection, personal stories
+- "deflection"     — backing off, apologising, changing subject after being too pushy
+
+Return ONLY valid JSON. No other text.
+RESPONSE FORMAT:
+{{"delta": <integer 0-20>, "reason": "<short explanation>", "intent_category": "<category>"}}"""
+
+
+def _normalize(text: str) -> str:
+    """Unescape backslash-escaped underscores that some LLMs emit."""
+    return text.replace("\\_", "_")
+
+
+def _parse_result(text: str) -> dict:
+    """Triple-fallback JSON parsing. Never crash."""
+    text = _normalize(text)
+
+    # Try 1: direct parse
     try:
-        evaluation = json.loads(evaluation_text)
+        parsed = json.loads(text.strip())
+        if "delta" in parsed:
+            return parsed
     except json.JSONDecodeError:
-        # Try regex extraction
-        delta_match = re.search(r'"delta"\s*:\s*(\d+)', evaluation_text)
-        reason_match = re.search(r'"reason"\s*:\s*"([^"]+)"', evaluation_text)
-        intent_match = re.search(r'"intent_category"\s*:\s*"([^"]+)"', evaluation_text)
-        
-        if delta_match and reason_match and intent_match:
-            evaluation = {
-                "delta": min(int(delta_match.group(1)), 20),  # Cap at 20
-                "reason": reason_match.group(1),
-                "intent_category": intent_match.group(1)
-            }
-        else:
-            # Safe default
-            evaluation = {
-                "delta": 0,
-                "reason": "Could not parse evaluation, defaulting to safe value",
-                "intent_category": "neutral"
-            }
-    
+        pass
+
+    # Try 2: extract JSON from text
+    match = re.search(r'\{[^}]+\}', text)
+    if match:
+        try:
+            parsed = json.loads(match.group())
+            if "delta" in parsed:
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    # Try 3: safe default
+    return {"delta": 0.0, "reason": "parse_error", "intent_category": "casual"}
+
+
+async def suspicion_node(state: GameGraphState) -> dict:
+    # Click mode: no user message to evaluate, skip LLM
+    if state.get("user_message") is None:
+        return {"suspicion_delta": 0.0, "suspicion_reason": "", "intent_category": "casual"}
+
+    character = get_npc(state["character_id"])
+    user_message = state["user_message"]
+    current_suspicion = state.get("suspicion", 0.0)
+    history = state.get("history", [])
+
+    system_prompt = _build_system_prompt(character, current_suspicion)
+    messages = [SystemMessage(content=system_prompt)]
+
+    for msg in history[-LC.SUSPICION_HISTORY:]:
+        cls = HumanMessage if msg["role"] == "user" else AIMessage
+        messages.append(cls(content=msg["content"]))
+
+    messages.append(HumanMessage(content=f"EVALUATE THIS MESSAGE: {user_message}"))
+
+    llm = build_mistral_llm(streaming=False)
+    response = await llm.ainvoke(messages)
+    logger.debug("[SUSPICION RAW] character=%s | raw_output=%r", state["character_id"], response.content)
+
+    result = _parse_result(response.content)
+
+    raw_delta = float(result.get("delta", 0.0))
+    delta = max(0.0, min(SC.DELTA_MAX, raw_delta)) / SC.DELTA_SCALE
+
+    logger.info("[SUSPICION] character=%s suspicion=%.2f | intent=%s delta=%.2f reason=%r",
+                state["character_id"], state.get("suspicion", 0.0),
+                result.get("intent_category"), delta, result.get("reason", ""))
+
     return {
-        **state,
-        "suspicion_delta": evaluation["delta"] / 100.0,  # Convert to 0.0-0.2 range
-        "suspicion_reason": evaluation["reason"],
-        "intent_category": evaluation["intent_category"]
+        "suspicion_delta": delta,
+        "suspicion_reason": result.get("reason", ""),
+        "intent_category": result.get("intent_category", "casual"),
     }

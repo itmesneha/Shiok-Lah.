@@ -1,84 +1,39 @@
-# backend/graph/nodes/voice_node.py
 """
-Voice generation node using ElevenLabs TTS.
+voice_node — pre-generates ElevenLabs TTS audio for the character response.
+Runs after character_node, in parallel with the suspicion evaluation chain,
+so TTS generation overlaps with game logic rather than following it.
 """
 
-import os
-import requests
-import base64
-from ...config import API
-from ..state import GameGraphState
+import logging
+from graph.state import GameGraphState
+from models.npcs import get_npc
+from routes.voice import tts_stream_chunks, ELEVENLABS_API_KEY
+
+log = logging.getLogger("shiok.voice")
 
 
-def voice_node(state: GameGraphState) -> GameGraphState:
-    """
-    Generate TTS audio for character response using ElevenLabs.
-    
-    Args:
-        state: Current game state
-        
-    Returns:
-        State with audio_bytes populated (or None if voice disabled)"""
-    
-    # Check if voice is enabled and we have required data
-    if not state.get("character_response"):
-        return {
-            **state,
-            "audio_bytes": None,
-            "voice_error": "No character response to synthesize"
-        }
-    
-    voice_id = state.get("voice_id")
-    if not voice_id:
-        return {
-            **state,
-            "audio_bytes": None,
-            "voice_error": "No voice ID configured for character"
-        }
-    
-    if not API.ELEVENLABS_API_KEY:
-        return {
-            **state,
-            "audio_bytes": None,
-            "voice_error": "ElevenLabs API key not configured"
-        }
-    
+async def voice_node(state: GameGraphState) -> dict:
+    text = state.get("character_response", "")
+    if not text:
+        return {"audio_bytes": None}
+
+    character_id = state["character_id"]
+    mood = state.get("mood", "neutral")
+
     try:
-        # ElevenLabs TTS API call
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        headers = {
-            "Accept": "audio/mpeg",
-            "Content-Type": "application/json",
-            "xi-api-key": API.ELEVENLABS_API_KEY
-        }
-        data = {
-            "text": state["character_response"],
-            "model_id": "eleven_turbo_v2_5",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.75
-            }
-        }
-        
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        response.raise_for_status()
-        
-        # Return audio bytes
-        return {
-            **state,
-            "audio_bytes": response.content,
-            "voice_error": None
-        }
-        
-    except requests.exceptions.RequestException as e:
-        return {
-            **state,
-            "audio_bytes": None,
-            "voice_error": f"ElevenLabs API error: {str(e)}"
-        }
+        npc = get_npc(character_id)
+        voice_id = npc.get("voice_id", "")
+        if not voice_id or not ELEVENLABS_API_KEY:
+            return {"audio_bytes": None}
+
+        chunks = []
+        async for chunk in tts_stream_chunks(voice_id, text, mood):
+            chunks.append(chunk)
+
+        audio = b"".join(chunks)
+        log.info("[VOICE] %s | %d bytes", character_id, len(audio))
+        return {"audio_bytes": audio}
+
     except Exception as e:
-        return {
-            **state,
-            "audio_bytes": None,
-            "voice_error": f"Voice generation error: {str(e)}"
-        }
+        log.warning("[VOICE] TTS failed (%s): %s", character_id, e)
+        return {"audio_bytes": None}

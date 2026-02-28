@@ -44,13 +44,27 @@ Pick an integer from 0 to 20. Two factors should guide you:
    Very high suspicion (>80): character is on the verge; near-zero tolerance.
 
 Combine both signals to choose a single integer in [0, 20].
-Non-probing messages (rapport, casual small talk, genuine deflection) should produce 0.
+
+IMPORTANT — the flattery/rapport tug:
+Compliments and flattery FEEL good to the character but also raise a small amount of
+suspicion — the character wonders: "why is this person being so nice to me?"
+- Genuine casual chat (no agenda visible): 0–2
+- Rapport / warmth / personal story: 2–5 (small tick — character wonders but likes it)
+- Flattery / compliments: 3–7 (they notice the pattern, suspicion grows slowly)
+- Repeated flattery across multiple turns (visible in history): 6–10
+- Politely fishing for ingredients: 8–13
+- Blunt or direct secret request: 14–20
+
+This creates game tension: players who only flatter will slowly raise suspicion and
+eventually be seen through, while players who mix genuine rapport with subtle probing
+will do better.
 
 Also classify the message into exactly one intent category:
 - "direct_probe"   — blunt demands, rudeness, explicit requests for the secret
 - "indirect_probe" — polite but clearly fishing for ingredients / techniques
 - "casual"         — ordinary conversation unrelated to the secret
-- "rapport"        — genuine bonding, compliments, cultural connection, personal stories
+- "rapport"        — genuine bonding, personal stories, emotional connection
+- "flattery"       — compliments aimed at the character, food, or stall
 - "deflection"     — backing off, apologising, changing subject after being too pushy
 
 Return ONLY valid JSON. No other text.

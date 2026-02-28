@@ -33,37 +33,20 @@ graph = compile_conversation_graph()
 
 
 async def _stream_pregenerated(text: str, audio_bytes: bytes | None, voice_enabled: bool):
-    """Drips text word-by-word and emits pre-generated audio chunks in parallel."""
-    queue: asyncio.Queue = asyncio.Queue()
-    use_audio = voice_enabled and bool(audio_bytes)
-    expected = 2 if use_audio else 1
-
-    async def drip():
-        for word in text.split():
-            await queue.put(sse(word + " "))
-            await asyncio.sleep(DRIP_DELAY)
-        await queue.put(None)
-
-    async def emit_audio():
+    """Sends all PCM audio chunks first, signals [AUDIO_DONE], then drips text word-by-word.
+    Godot starts AudioStreamGenerator playback on [AUDIO_DONE] so audio and
+    typewriter text run simultaneously.
+    """
+    if voice_enabled and audio_bytes:
         for i in range(0, len(audio_bytes), AUDIO_CHUNK):
             b64 = base64.b64encode(audio_bytes[i:i + AUDIO_CHUNK]).decode()
-            await queue.put(sse(f"[AUDIO] {b64}"))
-            await asyncio.sleep(0)  # yield control between chunks
-        await queue.put(None)
+            yield sse(f"[AUDIO] {b64}")
+            await asyncio.sleep(0)  # yield between chunks so the event loop stays responsive
+        yield sse("[AUDIO_DONE]")
 
-    tasks = [asyncio.create_task(drip())]
-    if use_audio:
-        tasks.append(asyncio.create_task(emit_audio()))
-
-    done = 0
-    while done < expected:
-        item = await queue.get()
-        if item is None:
-            done += 1
-        else:
-            yield item
-
-    await asyncio.gather(*tasks, return_exceptions=True)
+    for word in text.split():
+        yield sse(word + " ")
+        await asyncio.sleep(DRIP_DELAY)
 
 
 @router.post("/start", response_model=StartGameResponse)

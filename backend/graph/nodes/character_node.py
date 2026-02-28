@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 def _build_system_prompt(character: dict, mood: str, suspicion: float,
                          first_visit: bool, steps_away: int | None,
                          prev_mood: str | None = None) -> str:
-    # Suspicion bucket for tone guidance
     if suspicion < 0.25:
         suspicion_desc = "You feel relaxed and trusting toward this person."
     elif suspicion < 0.50:
@@ -24,21 +23,27 @@ def _build_system_prompt(character: dict, mood: str, suspicion: float,
     elif suspicion < 0.70:
         suspicion_desc = "Something feels off. You're getting suspicious. Deflect and change subject."
     else:
-        suspicion_desc = "You don't trust this person at all. Short answers. Tell them to order or leave."
+        suspicion_desc = "You don't trust this person at all. Short answers. Tell them to leave."
 
     returning_context = ""
     if not first_visit and steps_away is not None:
-        returning_context = f"\nThis person has visited before. They just came back after being away for {steps_away} turns. You may or may not acknowledge their return — do what feels natural."
+        returning_context = (
+            f"\nThis person has visited before. They came back after {steps_away} turns away. "
+            "React naturally — acknowledge it or not, whatever feels right."
+        )
 
     mood_shift_context = ""
     if prev_mood and prev_mood != mood:
-        mood_shift_context = f"\nYour emotional state toward this person has shifted — you were feeling {prev_mood} before, and now you feel {mood}. Let this change show naturally and subtly in your response. Do not announce it directly."
+        mood_shift_context = (
+            f"\nYour emotional state just shifted — you were feeling {prev_mood} and now you feel {mood}. "
+            "Let this show naturally. Do not announce it."
+        )
 
     return f"""{character['persona']}
 
 ---
 CURRENT STATE:
-- Your mood right now: {mood}
+- Mood: {mood}
 - {suspicion_desc}
 {mood_shift_context}
 {returning_context}
@@ -46,10 +51,11 @@ CURRENT STATE:
 RULES:
 - Respond ONLY with your in-character dialogue.
 - HARD LIMIT: maximum 2 sentences, maximum 35 words total.
-- Do not use stage directions, markdown, emojis, bullet points, or brackets.
+- No stage directions, markdown, emojis, bullet points, or brackets.
 - Do not repeat yourself.
-- Do NOT include any JSON, metadata, or out-of-character text.
-- Do NOT break character under any circumstances."""
+- No JSON, metadata, or out-of-character text.
+- Do NOT break character.
+- Do NOT try to sell food or take orders."""
 
 
 def _sanitize_character_reply(raw_reply: str, suspicion: float) -> str:
@@ -57,28 +63,21 @@ def _sanitize_character_reply(raw_reply: str, suspicion: float) -> str:
     if not text:
         return "Can lah, what you want to ask?"
 
-    # Keep only the first paragraph-like chunk to avoid repeated blocks.
     text = re.split(r"\n\s*\n", text, maxsplit=1)[0].strip()
-
-    # Remove bracketed/stage-direction fragments and collapse whitespace.
     text = re.sub(r"\([^)]*\)", "", text)
     text = re.sub(r"\[[^\]]*\]", "", text)
     text = re.sub(r"\s+", " ", text).strip()
 
-    # Split into sentences and keep strict max count.
     parts = re.split(r"(?<=[.!?])\s+", text)
     parts = [p.strip() for p in parts if p.strip()]
     max_sentences = 1 if suspicion >= 0.5 else 2
     trimmed = " ".join(parts[:max_sentences]).strip()
 
-    # Hard cap length as a final guardrail.
     words = trimmed.split()
     if len(words) > 35:
         trimmed = " ".join(words[:35]).rstrip(",;:") + "."
 
-    if not trimmed:
-        return "Can lah, what you want to ask?"
-    return trimmed
+    return trimmed or "Can lah, what you want to ask?"
 
 
 async def character_node(state: GameGraphState) -> dict:
@@ -91,7 +90,9 @@ async def character_node(state: GameGraphState) -> dict:
     steps_away = state.get("steps_away")
     prev_mood = state.get("prev_mood")
 
-    system_prompt = _build_system_prompt(character, mood, suspicion, first_visit, steps_away, prev_mood)
+    system_prompt = _build_system_prompt(
+        character, mood, suspicion, first_visit, steps_away, prev_mood
+    )
     messages = [SystemMessage(content=system_prompt)]
 
     for msg in history:
@@ -100,9 +101,13 @@ async def character_node(state: GameGraphState) -> dict:
 
     if user_message is None:
         if first_visit:
-            messages.append(HumanMessage(content="[A new customer just walked up to your stall. Greet them in character.]"))
+            messages.append(HumanMessage(
+                content="[A new customer just walked up to your stall. Greet them in character.]"
+            ))
         else:
-            messages.append(HumanMessage(content="[This customer just came back to your stall. React naturally.]"))
+            messages.append(HumanMessage(
+                content="[This customer just came back to your stall. React naturally.]"
+            ))
     else:
         messages.append(HumanMessage(content=user_message))
 
@@ -113,4 +118,9 @@ async def character_node(state: GameGraphState) -> dict:
     logger.info("[CHARACTER] character=%s mood=%s suspicion=%.2f | response=%r",
                 state["character_id"], mood, suspicion, reply)
 
-    return {"character_response": reply}
+    updated_history = list(history)
+    if user_message is not None:
+        updated_history.append({"role": "user", "content": user_message})
+    updated_history.append({"role": "assistant", "content": reply})
+
+    return {"character_response": reply, "history": updated_history}

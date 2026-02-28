@@ -7,16 +7,15 @@ Graph structure:
                          → gate
                             ↓                    ↓
                     character_node          suspicion_node   ← PARALLEL
-                       ↓        ↓                ↓      ↓
-                  voice_node  win_check     win_check  apply_suspicion
-                       ↓        ↓                ↓      ↓
-                      persist (fan-in: voice_node + win_check + apply_suspicion)
+                       ↓        ↓                ↓
+                  voice_node  win_check     apply_suspicion
+                       ↓        ↓                ↓
+                      persist (3-way fan-in)
                           ↓
                          END
 
-voice_node runs after character_node, in parallel with the suspicion chain.
-In click mode, suspicion_node short-circuits (returns delta=0) and win_check
-skips its LLM call.
+No cross-branch edges: win_check only needs character output;
+apply_suspicion only needs suspicion_node output.
 """
 
 from langgraph.graph import StateGraph, START, END
@@ -35,60 +34,46 @@ from graph.nodes.persist import persist
 logger = logging.getLogger("shiok.graph")
 
 
-# ── Conditional edge functions ──
-
 def after_preflight(state: GameGraphState) -> str:
-    """Route after preflight checks."""
     if state.get("error") or state.get("game_over"):
         return "persist"
     return "gate"
 
 
-# ── Build the graph ──
-
 def build_conversation_graph() -> StateGraph:
     graph = StateGraph(GameGraphState)
 
-    # Add all nodes
     graph.add_node("load_state", load_state)
     graph.add_node("preflight", preflight)
-    graph.add_node("gate", lambda state: {})  # no-op pass-through
+    graph.add_node("gate", lambda state: {})
     graph.add_node("character_node", character_node)
     graph.add_node("voice_node", voice_node)
     graph.add_node("suspicion_node", suspicion_node)
-    graph.add_node("win_check", win_check)
     graph.add_node("apply_suspicion", apply_suspicion)
+    graph.add_node("win_check", win_check)
     graph.add_node("persist", persist)
-
-    # ── Edges ──
 
     graph.add_edge(START, "load_state")
     graph.add_edge("load_state", "preflight")
 
-    # Preflight → conditional: error/game_over → persist, else → gate
     graph.add_conditional_edges(
         "preflight",
         after_preflight,
-        {
-            "persist": "persist",
-            "gate": "gate",
-        },
+        {"persist": "persist", "gate": "gate"},
     )
 
-    # gate → character_node and suspicion_node in parallel
+    # Parallel fan-out from gate — no cross-branch edges
     graph.add_edge("gate", "character_node")
     graph.add_edge("gate", "suspicion_node")
 
-    # character_node → voice_node (starts TTS as soon as dialogue is ready)
+    # Character branch
     graph.add_edge("character_node", "voice_node")
-
-    # Both character_node + suspicion_node fan-in to win_check and apply_suspicion
     graph.add_edge("character_node", "win_check")
-    graph.add_edge("suspicion_node", "win_check")
-    graph.add_edge("character_node", "apply_suspicion")
+
+    # Suspicion branch
     graph.add_edge("suspicion_node", "apply_suspicion")
 
-    # persist waits for voice_node, win_check, AND apply_suspicion (3-way fan-in)
+    # 3-way fan-in at persist
     graph.add_edge("voice_node", "persist")
     graph.add_edge("win_check", "persist")
     graph.add_edge("apply_suspicion", "persist")
@@ -100,5 +85,4 @@ def build_conversation_graph() -> StateGraph:
 
 def compile_conversation_graph():
     """Returns a compiled, ready-to-invoke graph."""
-    graph = build_conversation_graph()
-    return graph.compile()
+    return build_conversation_graph().compile()

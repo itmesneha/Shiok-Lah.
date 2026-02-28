@@ -1,11 +1,11 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://emld8j7tgjqb"]
 
 [ext_resource type="Script" uid="uid://bo3ygaxsll6t8" path="res://scripts/MoodIndicator.gd" id="1_f1s8l"]
 [ext_resource type="FontFile" uid="uid://d14j8f17cq2j" path="res://assets/fonts/Minecraft.ttf" id="2_mcfont"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_mood_title"]
 font = ExtResource("2_mcfont")
-font_size = 20
+font_size = 15
 font_color = Color(1, 0.95, 0.82, 1)
 outline_size = 2
 outline_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
@@ -14,45 +14,43 @@ shadow_offset = Vector2(0.2, 0.2)
 
 [sub_resource type="LabelSettings" id="LabelSettings_mood_status"]
 font = ExtResource("2_mcfont")
-font_size = 20
+font_size = 15
 font_color = Color(0.9, 0.9, 0.9, 1)
 outline_size = 2
 outline_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
 shadow_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
 shadow_offset = Vector2(0.2, 0.2)
 
-[node name="MoodIndicator" type="Control"]
+[node name="MoodIndicator" type="Control" unique_id=345656577]
+layout_mode = 3
 anchors_preset = 0
 offset_right = 260.0
 offset_bottom = 72.0
+scale = Vector2(1.6399996, 1)
 script = ExtResource("1_f1s8l")
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="Panel" type="PanelContainer" parent="." unique_id=658807837]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HBox" type="HBoxContainer" parent="Panel"]
+[node name="HBox" type="HBoxContainer" parent="Panel" unique_id=1175422168]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="MoodIcon" type="TextureRect" parent="Panel/HBox"]
-custom_minimum_size = Vector2(38, 38)
-layout_mode = 2
-stretch_mode = 5
-
-[node name="TextCol" type="VBoxContainer" parent="Panel/HBox"]
+[node name="TextCol" type="VBoxContainer" parent="Panel/HBox" unique_id=1871411571]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ActorLabel" type="Label" parent="Panel/HBox/TextCol"]
+[node name="ActorLabel" type="Label" parent="Panel/HBox/TextCol" unique_id=1528335378]
 layout_mode = 2
 text = "NPC"
 label_settings = SubResource("LabelSettings_mood_title")
 
-[node name="StatusLabel" type="Label" parent="Panel/HBox/TextCol"]
+[node name="StatusLabel" type="Label" parent="Panel/HBox/TextCol" unique_id=1615884473]
 layout_mode = 2
 text = "Neutral"
 label_settings = SubResource("LabelSettings_mood_status")

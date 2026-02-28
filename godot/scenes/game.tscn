@@ -17,7 +17,7 @@
 [ext_resource type="Texture2D" uid="uid://d2fugm4haauej" path="res://assets/characters/boyGrandma.png" id="15_ir15t"]
 [ext_resource type="Texture2D" uid="uid://c6khl0pm2ih15" path="res://assets/characters/Adam_idle_anim_16x16.png" id="16_ca42v"]
 [ext_resource type="Texture2D" uid="uid://c26npuknew8s" path="res://assets/characters/Bob_phone_16x16.png" id="17_rysoc"]
-[ext_resource type="Script" path="res://scripts/music_toggle_button.gd" id="18_mute"]
+[ext_resource type="Script" uid="uid://80jsbmercw67" path="res://scripts/music_toggle_button.gd" id="18_mute"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_lnu2h"]
 texture = ExtResource("2_yqjtg")
@@ -1397,15 +1397,16 @@ autoplay = true
 [node name="HintOverlay" type="CanvasLayer" parent="." unique_id=208445612]
 layer = 10
 
-[node name="MusicMuteButton" type="Button" parent="HintOverlay"]
+[node name="MusicMuteButton" type="TextureButton" parent="HintOverlay" unique_id=1297899117]
+anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -52.0
-offset_top = 16.0
+offset_top = 60.0
 offset_right = -16.0
-offset_bottom = 52.0
-theme_override_font_sizes/font_size = 24
-text = "♪"
+offset_bottom = 96.0
+custom_minimum_size = Vector2(36, 36)
+ignore_texture_size = true
 tooltip_text = "Mute music"
 script = ExtResource("18_mute")
 

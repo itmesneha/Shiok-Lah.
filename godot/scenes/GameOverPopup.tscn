@@ -21,10 +21,10 @@ outline_color = Color(0.07, 0.07, 0.07, 1)
 shadow_color = Color(0.07, 0.07, 0.07, 1)
 shadow_offset = Vector2(0.2, 0.2)
 
-[node name="GameOverPopup" type="CanvasLayer"]
+[node name="GameOverPopup" type="CanvasLayer" unique_id=1102890591]
 script = ExtResource("1_pop")
 
-[node name="Backdrop" type="ColorRect" parent="."]
+[node name="Backdrop" type="ColorRect" parent="." unique_id=136822848]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -32,58 +32,51 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 0.6)
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=587830996]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=965529]
 custom_minimum_size = Vector2(520, 260)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer" unique_id=1241895755]
 layout_mode = 2
 theme_override_constants/margin_left = 24
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 20
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer" unique_id=1872404144]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="Title" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Title" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1027268997]
 layout_mode = 2
 text = "Game Over"
-horizontal_alignment = 1
 label_settings = SubResource("LabelSettings_title")
+horizontal_alignment = 1
 
-[node name="Message" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Message" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=754083099]
 custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
-text = "You got caught."
-autowrap_mode = 3
+text = "You got caught!!"
+label_settings = SubResource("LabelSettings_message")
 horizontal_alignment = 1
 vertical_alignment = 1
-label_settings = SubResource("LabelSettings_message")
+autowrap_mode = 3
 
-[node name="Buttons" type="HBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Buttons" type="HBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=2081529893]
 layout_mode = 2
-alignment = 1
 theme_override_constants/separation = 14
+alignment = 1
 
-[node name="RestartButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+[node name="RestartButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=1216836492]
 custom_minimum_size = Vector2(180, 40)
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_font")
 theme_override_font_sizes/font_size = 12
 text = "Back To Menu"
-
-[node name="CloseButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
-custom_minimum_size = Vector2(120, 40)
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 12
-text = "Close"

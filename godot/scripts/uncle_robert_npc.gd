@@ -13,6 +13,7 @@ var _float_speed := 0.003
 func _ready():
 	interact_area.body_entered.connect(_on_player_entered)
 	interact_area.body_exited.connect(_on_player_exited)
+	DialogueManager.conversation_ended.connect(_on_conversation_ended)
 	_ensure_overlay_label()
 	_overlay_label.visible = false
 
@@ -44,6 +45,12 @@ func start_dialogue():
 		_overlay_label.visible = false
 	get_node("/root/Game/Player").can_move = false
 	DialogueManager.start_conversation("uncle_robert")
+
+func _on_conversation_ended():
+	in_dialogue = false
+	if player_nearby and is_instance_valid(_overlay_label):
+		_overlay_label.visible = true
+		_update_overlay_position()
 
 func _ensure_overlay_label():
 	if is_instance_valid(_overlay_label):

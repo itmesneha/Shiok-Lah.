@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://b4mh7vuwbwthc"]
 
 [ext_resource type="Script" uid="uid://dg8ho100tk4fq" path="res://scripts/NPCDialogue.gd" id="1_8p1en"]
-[ext_resource type="PackedScene" path="res://scenes/MoodIndicator.tscn" id="2_8mcn1"]
+[ext_resource type="PackedScene" uid="uid://emld8j7tgjqb" path="res://scenes/MoodIndicator.tscn" id="2_8mcn1"]
 [ext_resource type="Texture2D" uid="uid://c3v04of4xccbu" path="res://assets/moods/16x16_emoji_asset_pack_v1.1.png" id="3_jd4t4"]
 [ext_resource type="FontFile" uid="uid://d14j8f17cq2j" path="res://assets/fonts/Minecraft.ttf" id="4_mcfont"]
 
@@ -140,51 +140,51 @@ size_flags_horizontal = 3
 color = Color(0.15, 0.15, 0.15, 0.95)
 
 [node name="MoodIndicator" parent="." unique_id=873755921 instance=ExtResource("2_8mcn1")]
-layout_mode = 3
 offset_left = 14.0
 offset_top = 14.0
 offset_right = 182.0
-neutral_sprite_path = NodePath("NeutralSprite")
-warm_sprite_path = NodePath("WarmSprite")
-suspicious_sprite_path = NodePath("SuspiciousSprite")
-hostile_sprite_path = NodePath("HostileSprite")
-impressed_sprite_path = NodePath("ImpressedSprite")
+scale = Vector2(1.3368876, 1)
+neutral_sprite_path = NodePath("../NeutralSprite")
+warm_sprite_path = NodePath("../WarmSprite")
+suspicious_sprite_path = NodePath("../SuspiciousSprite")
+hostile_sprite_path = NodePath("../HostileSprite")
+impressed_sprite_path = NodePath("../ImpressedSprite")
 actor_font = ExtResource("4_mcfont")
 status_font = ExtResource("4_mcfont")
 actor_font_size = 20
 status_font_size = 20
 
-[node name="NeutralSprite" type="Sprite2D" parent="MoodIndicator" unique_id=2085912890]
-position = Vector2(131.92, 28.16)
-scale = Vector2(3.24, 2.96)
+[node name="NeutralSprite" type="Sprite2D" parent="." unique_id=2085912890]
+position = Vector2(215, 40)
+scale = Vector2(2.028325, 2.24)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(1, -1, 15, 17)
 
-[node name="WarmSprite" type="Sprite2D" parent="MoodIndicator" unique_id=395988409]
-position = Vector2(131.92, 28.16)
-scale = Vector2(3.24, 2.96)
+[node name="WarmSprite" type="Sprite2D" parent="." unique_id=395988409]
+position = Vector2(215, 40)
+scale = Vector2(2.028325, 2.24)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(32, 1, 15, 14)
 
-[node name="SuspiciousSprite" type="Sprite2D" parent="MoodIndicator" unique_id=541634501]
-position = Vector2(131.92, 28.16)
-scale = Vector2(3.24, 2.96)
+[node name="SuspiciousSprite" type="Sprite2D" parent="." unique_id=541634501]
+position = Vector2(215, 40)
+scale = Vector2(2.028325, 2.24)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(113, 96, 14, 15)
 
-[node name="HostileSprite" type="Sprite2D" parent="MoodIndicator" unique_id=1653611935]
-position = Vector2(131.92, 28.16)
-scale = Vector2(3.24, 2.96)
+[node name="HostileSprite" type="Sprite2D" parent="." unique_id=1653611935]
+position = Vector2(215, 40)
+scale = Vector2(2.028325, 2.24)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(32, 112, 16, 16)
 
-[node name="ImpressedSprite" type="Sprite2D" parent="MoodIndicator" unique_id=464458884]
-position = Vector2(131.92, 28.16)
-scale = Vector2(3.24, 2.96)
+[node name="ImpressedSprite" type="Sprite2D" parent="." unique_id=464458884]
+position = Vector2(215, 40)
+scale = Vector2(2.028325, 2.24)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(16, 33, 16, 15)

@@ -20,6 +20,13 @@ config/icon="res://icon.svg"
 DialogueManager="*uid://b4bi0mar4v8ae"
 GameState="*uid://1q4ix463nejm"
 
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
 [input]
 
 interact={

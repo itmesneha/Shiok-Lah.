@@ -26,7 +26,7 @@ const NPC_NAMES = {
 }
 const SUSPICION_SEGMENT_COUNT = 10
 const NPC_TYPEWRITER_DELAY := 0.02
-const API_HOST := "localhost"
+const API_HOST := "127.0.0.1"
 const API_PORT := 8000
 const API_MESSAGE_PATH := "/api/game/message"
 const GAME_OVER_POPUP_SCENE := preload("res://scenes/GameOverPopup.tscn")
@@ -126,8 +126,7 @@ func _send_message(message: String):
 	var sse_buffer = ""
 	var dialogue = ""
 	var state = {}
-	var sse_audio_bytes = PackedByteArray()
-	var sse_audio_started = false
+	var got_audio = false
 	var line_open = false
 	var stream_done = false
 	pcm_carry_byte = -1
@@ -155,20 +154,21 @@ func _send_message(message: String):
 				var json = JSON.new()
 				if json.parse(raw_data.substr(8)) == OK:
 					state = json.get_data()
-			elif data.begins_with("[AUDIO] "):
-				var b64 = data.substr(8).strip_edges()
+			elif raw_data.begins_with("[AUDIO] "):
+				var b64 = raw_data.substr(8).strip_edges()
 				var audio_chunk = Marshalls.base64_to_raw(b64)
 				if audio_chunk.size() > 0:
 					got_audio = true
 					_queue_pcm_chunk(audio_chunk)
-			elif data == "[AUDIO_DONE]":
+			elif raw_data == "[AUDIO_DONE]":
 				pass
-			elif data.begins_with("[ERROR]"):
-				dialogue_text.append_text("\n[color=red]" + data.substr(7) + "[/color]\n")
-			elif data == "[DONE]":
+			elif raw_data.begins_with("[ERROR]"):
+				dialogue_text.append_text("\n[color=red]" + raw_data.substr(7) + "[/color]\n")
+			elif raw_data == "[DONE]":
 				stream_done = true
 				break
 			else:
+				var data = _sanitize_display_text(raw_data)
 				if not line_open:
 					dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
 					line_open = true
@@ -196,8 +196,8 @@ func _send_message(message: String):
 	if line_open:
 		dialogue_text.append_text("\n")
 
-	# Fallback: if SSE audio did not start, request /voice/speak.
-	if not sse_audio_started and dialogue.strip_edges() != "":
+	# Fallback: if no streamed audio arrived, request /voice/speak.
+	if not got_audio and dialogue.strip_edges() != "":
 		var mood_for_voice = str(state.get("mood", current_mood))
 		_request_voice_line(dialogue.strip_edges(), mood_for_voice)
 	
@@ -225,10 +225,6 @@ func _update_game_state(state: Dictionary):
 	var mood = state.get("mood", state.get("new_mood", "neutral"))
 	_set_mood(mood)
 
-	# Normalize win key for existing GameState.gd flow.
-	if state.has("win_detected") and not state.has("win"):
-		state["win"] = state.get("win_detected", false)
-	
 	# Tell GameState to update
 	GameState.update_npc_state(npc_id, state)
 	
@@ -236,8 +232,6 @@ func _update_game_state(state: Dictionary):
 	var is_terminal = bool(state.get("game_over", false))
 	var game_status = str(state.get("game_status", "active"))
 	if game_status == "lost" or game_status == "won" or game_status == "game_over":
-		is_terminal = true
-	if bool(state.get("force_leave", false)):
 		is_terminal = true
 	if state.get("loss_reason", null) != null:
 		is_terminal = true
@@ -251,12 +245,14 @@ func _update_game_state(state: Dictionary):
 func _show_game_over_popup(state: Dictionary):
 	var popup = GAME_OVER_POPUP_SCENE.instantiate()
 	get_tree().root.add_child(popup)
-	var did_win = bool(state.get("win", false))
+	var did_win = str(state.get("game_status", "")) == "won" or bool(state.get("win", false))
 	var loss_reason = str(state.get("loss_reason", ""))
 	popup.configure(did_win, loss_reason)
 	var go_to_menu = await popup.action_selected
+	_clear_dialogue_ui()
+	await _reset_current_round()
 	if go_to_menu:
-		await _reset_current_round()
+		close_dialogue()
 		get_tree().change_scene_to_file(START_MENU_SCENE_PATH)
 		return
 	close_dialogue()
@@ -591,6 +587,11 @@ func _on_voice_response(result, response_code, headers, body, http):
 		return
 	_play_pcm_bytes(body)
 
+func _clear_dialogue_ui():
+	dialogue_text.clear()
+	player_input.clear()
+
 func close_dialogue():
+	_clear_dialogue_ui()
 	DialogueManager.end_conversation()
 	queue_free()

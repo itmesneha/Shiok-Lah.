@@ -47,8 +47,12 @@ func collect_secret(npc_id: String):
 
 func update_npc_state(npc_id: String, state: Dictionary):
 	npc_states[npc_id] = state
-	if state.get("win", false):
+	if bool(state.get("secret_extracted", false)):
 		collect_secret(npc_id)
+
+func is_secret_extracted(npc_id: String) -> bool:
+	var npc_state: Dictionary = npc_states.get(npc_id, {}) as Dictionary
+	return bool(npc_state.get("secret_extracted", false))
 	
 signal secret_collected(npc_id)
 signal all_secrets_collected

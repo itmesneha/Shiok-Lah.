@@ -166,6 +166,7 @@ async def message(req: MessageRequest):
                     "game_over":        final_state.get("game_over", False),
                     "loss_reason":      final_state.get("loss_reason"),
                     "secrets_found":    len(final_state.get("secrets_found", [])),
+                    "secret_extracted": final_state.get("secret_extracted", False),
                     "win_detected":     final_state.get("win_detected", False),
                     "force_leave":      final_state.get("win_detected", False),
                 }

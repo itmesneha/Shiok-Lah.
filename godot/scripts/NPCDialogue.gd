@@ -34,6 +34,7 @@ const START_MENU_SCENE_PATH := "res://scenes/start_screen.tscn"
 const TTS_PCM_SAMPLE_RATE := 22050
 const TTS_BUFFER_SECONDS := 0.2
 const TTS_PCM_BIG_ENDIAN := false
+const SECRET_POPUP_SECONDS := 1.6
 
 func _sanitize_display_text(text: String) -> String:
 	# Remove wrapping quote glyphs that sometimes leak from model output.
@@ -224,6 +225,7 @@ func _update_game_state(state: Dictionary):
 	# Update mood
 	var mood = state.get("mood", state.get("new_mood", "neutral"))
 	_set_mood(mood)
+	var secret_extracted := bool(state.get("secret_extracted", false))
 
 	# Tell GameState to update
 	GameState.update_npc_state(npc_id, state)
@@ -240,6 +242,11 @@ func _update_game_state(state: Dictionary):
 
 	if is_terminal:
 		await _show_game_over_popup(state)
+		return
+
+	if secret_extracted:
+		await _show_secret_extracted_popup()
+		close_dialogue()
 		return
 
 func _show_game_over_popup(state: Dictionary):
@@ -287,6 +294,54 @@ func _flash_suspicion_bar():
 	var tween = create_tween()
 	tween.tween_property(suspicion_segments, "modulate", Color(1.0, 0.65, 0.65), 0.1)
 	tween.tween_property(suspicion_segments, "modulate", Color.WHITE, 0.3)
+
+func _show_secret_extracted_popup():
+	var existing = get_node_or_null("SecretExtractedToast")
+	if existing != null:
+		existing.queue_free()
+
+	var toast := PanelContainer.new()
+	toast.name = "SecretExtractedToast"
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast.anchor_left = 0.5
+	toast.anchor_right = 0.5
+	toast.anchor_top = 0.0
+	toast.anchor_bottom = 0.0
+	toast.offset_left = -260
+	toast.offset_right = 260
+	toast.offset_top = 74
+	toast.offset_bottom = 126
+	toast.modulate = Color(1, 1, 1, 0)
+
+	var label := Label.new()
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.text = "Congratulations! Secret extracted from " + NPC_NAMES.get(npc_id, npc_id) + "'s stall."
+	var settings := LabelSettings.new()
+	var font := load("res://assets/fonts/Minecraft.ttf") as Font
+	if font != null:
+		settings.font = font
+	settings.font_size = 16
+	settings.font_color = Color(0.96, 0.91, 0.76, 1)
+	settings.outline_size = 2
+	settings.outline_color = Color(0.07, 0.07, 0.07, 1)
+	label.label_settings = settings
+	toast.add_child(label)
+
+	var host := get_tree().root.get_node_or_null("Game/HintOverlay")
+	if host == null:
+		add_child(toast)
+	else:
+		host.add_child(toast)
+
+	var tween = create_tween()
+	tween.tween_property(toast, "modulate:a", 1.0, 0.15)
+	tween.tween_interval(SECRET_POPUP_SECONDS)
+	tween.tween_property(toast, "modulate:a", 0.0, 0.25)
+	await tween.finished
+	if is_instance_valid(toast):
+		toast.queue_free()
 
 func _initialize_dialogue_session():
 	var http = HTTPRequest.new()

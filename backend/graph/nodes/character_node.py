@@ -112,8 +112,15 @@ async def character_node(state: GameGraphState) -> dict:
         messages.append(HumanMessage(content=user_message))
 
     llm = build_llm(streaming=False)
-    response = await llm.ainvoke(messages)
-    reply = _sanitize_character_reply(response.content.strip(), suspicion)
+    try:
+        response = await llm.ainvoke(messages)
+        reply = _sanitize_character_reply(response.content.strip(), suspicion)
+    except Exception as e:
+        logger.exception("[CHARACTER] LLM failed for %s: %s", state["character_id"], e)
+        fallback = "Wah, my head not working now. Ask me again in a bit lah."
+        if suspicion >= 0.7:
+            fallback = "I busy now. You move on first."
+        reply = fallback
 
     logger.info("[CHARACTER] character=%s mood=%s suspicion=%.2f | response=%r",
                 state["character_id"], mood, suspicion, reply)

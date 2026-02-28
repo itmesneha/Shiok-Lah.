@@ -14,9 +14,11 @@ def load_state(state: GameGraphState) -> dict:
     user_message = state.get("user_message")
 
     # Load game session
-    game = state_manager.get_game(session_id)
-    if not game:
-        return {"error": f"No game found for session {session_id}"}
+    try:
+        game = state_manager.get_game(session_id)
+    except ValueError:
+        # Self-heal for clients that reuse local session IDs after backend restarts.
+        game = state_manager.create_game(session_id)
 
     result = {
         "global_step": game["global_step"],

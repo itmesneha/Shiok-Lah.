@@ -2,7 +2,7 @@
 Game routes — uses LangGraph conversation graph for talk + message flows.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 import json
 import asyncio
@@ -149,7 +149,10 @@ async def message(req: MessageRequest):
 @router.post("/leave")
 async def leave(req: LeaveRequest):
     """User clicked away from character. Snapshot bubble."""
-    game = state_manager.get_game(req.session_id)
+    try:
+        game = state_manager.get_game(req.session_id)
+    except ValueError:
+        return {"saved": False, "reason": "session_not_found"}
     if game:
         context_manager.exit_character(req.session_id, req.character_id, game["global_step"])
         state_manager.update_game(req.session_id, active_character=None)
@@ -159,13 +162,17 @@ async def leave(req: LeaveRequest):
 @router.get("/state/{session_id}", response_model=GameStateResponse)
 async def get_state(session_id: str):
     """Return full game state (no secrets)."""
-    game = state_manager.get_game(session_id)
-    if not game:
-        return {"error": "Game not found"}
+    try:
+        game = state_manager.get_game(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Game not found: {session_id}")
 
     characters = []
     for char_id in NPCS:
-        bubble = state_manager.get_bubble(session_id, char_id)
+        try:
+            bubble = state_manager.get_bubble(session_id, char_id)
+        except ValueError:
+            continue
         if bubble:
             characters.append({
                 "character_id": char_id,

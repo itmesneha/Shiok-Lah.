@@ -4,6 +4,9 @@ var npc_id: String = ""
 var is_waiting = false  # prevent spamming requests
 var current_mood: String = "neutral"
 var voice_player: AudioStreamPlayer
+var voice_stream: AudioStreamGenerator
+var voice_playback: AudioStreamGeneratorPlayback
+var pcm_carry_byte: int = -1
 
 @onready var dialogue_text = $DialoguePanel/VBoxContainer/DialogueText
 @onready var npc_name_label = $DialoguePanel/VBoxContainer/NPCNameLabel
@@ -25,6 +28,9 @@ const API_PORT := 8000
 const API_MESSAGE_PATH := "/api/game/message"
 const GAME_OVER_POPUP_SCENE := preload("res://scenes/GameOverPopup.tscn")
 const START_MENU_SCENE_PATH := "res://scenes/start_screen.tscn"
+const TTS_PCM_SAMPLE_RATE := 22050
+const TTS_BUFFER_SECONDS := 1.5
+const TTS_PCM_BIG_ENDIAN := false
 
 func _sanitize_display_text(text: String) -> String:
 	# Remove wrapping quote glyphs that sometimes leak from model output.
@@ -116,9 +122,10 @@ func _send_message(message: String):
 	var sse_buffer = ""
 	var dialogue = ""
 	var state = {}
-	var audio_bytes = PackedByteArray()
+	var got_audio = false
 	var line_open = false
 	var stream_done = false
+	pcm_carry_byte = -1
 
 	while client.get_status() == HTTPClient.STATUS_BODY and not stream_done:
 		client.poll()
@@ -145,7 +152,11 @@ func _send_message(message: String):
 				var b64 = data.substr(8).strip_edges()
 				var audio_chunk = Marshalls.base64_to_raw(b64)
 				if audio_chunk.size() > 0:
-					audio_bytes.append_array(audio_chunk)
+					got_audio = true
+					await _stream_pcm_chunk(audio_chunk)
+			elif data == "[AUDIO_DONE]":
+				# Backend finished sending audio chunks for this turn.
+				pass
 			elif data.begins_with("[ERROR]"):
 				dialogue_text.append_text("\n[color=red]" + data.substr(7) + "[/color]\n")
 			elif data == "[DONE]":
@@ -162,7 +173,7 @@ func _send_message(message: String):
 	var trailing = sse_buffer.strip_edges()
 	if trailing.begins_with("data: "):
 		var trailing_data = _sanitize_display_text(trailing.substr(6))
-		if trailing_data != "[DONE]" and not trailing_data.begins_with("[STATE]") and not trailing_data.begins_with("[AUDIO]") and not trailing_data.begins_with("[ERROR]"):
+		if trailing_data != "[DONE]" and trailing_data != "[AUDIO_DONE]" and not trailing_data.begins_with("[STATE]") and not trailing_data.begins_with("[AUDIO]") and not trailing_data.begins_with("[ERROR]"):
 			if not line_open:
 				dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
 				line_open = true
@@ -172,10 +183,8 @@ func _send_message(message: String):
 	if line_open:
 		dialogue_text.append_text("\n")
 
-	# Current backend sends MP3 as chunked bytes; play once fully assembled.
-	if audio_bytes.size() > 0:
-		_play_audio_bytes(audio_bytes)
-	elif dialogue.strip_edges() != "":
+	# Fallback: if no streamed audio arrived, request /voice/speak.
+	if not got_audio and dialogue.strip_edges() != "":
 		var mood_for_voice = str(state.get("mood", current_mood))
 		_request_voice_line(dialogue.strip_edges(), mood_for_voice)
 	
@@ -432,17 +441,81 @@ func _render_suspicion_segments(suspicion: float):
 func _play_audio_bytes(audio_bytes: PackedByteArray):
 	if audio_bytes.size() == 0:
 		return
-	var stream = AudioStreamMP3.new()
-	stream.data = audio_bytes
+	await _play_pcm_bytes(audio_bytes)
+
+func _ensure_pcm_stream():
+	if voice_stream == null:
+		voice_stream = AudioStreamGenerator.new()
+		voice_stream.mix_rate = TTS_PCM_SAMPLE_RATE
+		voice_stream.buffer_length = TTS_BUFFER_SECONDS
+	if voice_player.stream != voice_stream:
+		voice_player.stream = voice_stream
+	if not voice_player.playing:
+		voice_player.play()
+		await get_tree().process_frame
+	voice_playback = voice_player.get_stream_playback()
+
+func _stream_pcm_chunk(pcm_chunk: PackedByteArray):
+	if pcm_chunk.size() < 2:
+		if pcm_chunk.size() == 1:
+			pcm_carry_byte = int(pcm_chunk[0])
+		return
+	await _ensure_pcm_stream()
+	if voice_playback == null:
+		return
+
+	var index_byte: int = 0
+	if pcm_carry_byte >= 0:
+		var carry_sample: int = _decode_pcm_sample(pcm_carry_byte, int(pcm_chunk[0]))
+		pcm_carry_byte = -1
+		_push_pcm_sample(carry_sample)
+		index_byte = 1
+
+	var remainder: int = (pcm_chunk.size() - index_byte) % 2
+	var end_exclusive: int = pcm_chunk.size() - remainder
+	if remainder == 1:
+		pcm_carry_byte = int(pcm_chunk[pcm_chunk.size() - 1])
+
+	while index_byte + 1 < end_exclusive:
+		var available: int = voice_playback.get_frames_available()
+		if available <= 0:
+			await get_tree().process_frame
+			continue
+
+		var remaining_frames: int = int((end_exclusive - index_byte) / 2)
+		var frames_to_push: int = mini(available, remaining_frames)
+		for _i in range(frames_to_push):
+			var sample: int = _decode_pcm_sample(int(pcm_chunk[index_byte]), int(pcm_chunk[index_byte + 1]))
+			_push_pcm_sample(sample)
+			index_byte += 2
+
+func _decode_pcm_sample(byte0: int, byte1: int) -> int:
+	var sample: int
+	if TTS_PCM_BIG_ENDIAN:
+		sample = (byte0 << 8) | byte1
+	else:
+		sample = byte0 | (byte1 << 8)
+	if sample >= 32768:
+		sample -= 65536
+	return sample
+
+func _push_pcm_sample(sample: int):
+	var v: float = clampf(float(sample) / 32768.0, -1.0, 1.0)
+	voice_playback.push_frame(Vector2(v, v))
+
+func _play_pcm_bytes(pcm_bytes: PackedByteArray):
+	if pcm_bytes.size() == 0:
+		return
 	voice_player.stop()
-	voice_player.stream = stream
-	voice_player.play()
+	voice_playback = null
+	pcm_carry_byte = -1
+	await _stream_pcm_chunk(pcm_bytes)
 
 func _present_npc_reply(text: String, audio_bytes: PackedByteArray, mood: String):
 	if text.strip_edges() == "":
 		return
 	if audio_bytes.size() > 0:
-		_play_audio_bytes(audio_bytes)
+		await _play_audio_bytes(audio_bytes)
 	else:
 		# Fire TTS request before text reveal to overlap network + UI time.
 		_request_voice_line(text, mood)
@@ -481,7 +554,7 @@ func _on_voice_response(result, response_code, headers, body, http):
 	http.queue_free()
 	if response_code != 200:
 		return
-	_play_audio_bytes(body)
+	await _play_pcm_bytes(body)
 
 func close_dialogue():
 	DialogueManager.end_conversation()

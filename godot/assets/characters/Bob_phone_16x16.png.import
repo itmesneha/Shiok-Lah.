@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dse5i32mhiv1n"
-path="res://.godot/imported/Bob_16x16.png-cf96212abe7b144e63a202c90a739d17.ctex"
+uid="uid://c26npuknew8s"
+path="res://.godot/imported/Bob_phone_16x16.png-387b089dfa873d197dca94725edd5321.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/uncleRobert/Bob_16x16.png"
-dest_files=["res://.godot/imported/Bob_16x16.png-cf96212abe7b144e63a202c90a739d17.ctex"]
+source_file="res://assets/characters/Bob_phone_16x16.png"
+dest_files=["res://.godot/imported/Bob_phone_16x16.png-387b089dfa873d197dca94725edd5321.ctex"]
 
 [params]
 

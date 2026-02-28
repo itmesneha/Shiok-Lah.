@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bbeituj1fqr5f"
-path="res://.godot/imported/Bob_sit3_16x16.png-4337a610e32fdf2f2bb4304407a93da9.ctex"
+uid="uid://dyakxphi7b3c0"
+path="res://.godot/imported/asianAunty.png-84f4877d5142f91d0dcd43d7580f52cd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/uncleRobert/Bob_sit3_16x16.png"
-dest_files=["res://.godot/imported/Bob_sit3_16x16.png-4337a610e32fdf2f2bb4304407a93da9.ctex"]
+source_file="res://assets/characters/asianAunty.png"
+dest_files=["res://.godot/imported/asianAunty.png-84f4877d5142f91d0dcd43d7580f52cd.ctex"]
 
 [params]
 

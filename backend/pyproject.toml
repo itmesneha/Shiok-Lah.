@@ -20,6 +20,10 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # ElevenLabs SDK (used by voices/create_voices.py)
     "elevenlabs>=1.0.0",
+    # Mistral SDK (used for Voxtral realtime transcription)
+    "mistralai>=1.0.0",
+    # Microphone capture for test_interactive voice input
+    "sounddevice>=0.4.0",
 ]
 
 [tool.uv]

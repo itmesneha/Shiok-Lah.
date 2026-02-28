@@ -6,6 +6,10 @@ Then:                   python test_interactive.py
 You play as the food blogger trying to extract secret recipes.
 Type your messages, watch the NPCs respond in real-time via SSE.
 Text and audio stream in parallel — audio starts playing as first chunk arrives.
+
+Voice input: type 'v' at the message prompt to speak instead of type.
+Audio is streamed live to Voxtral realtime — partial transcript appears as you speak.
+Press Enter to stop recording and send the transcript.
 """
 
 import httpx
@@ -20,6 +24,7 @@ import struct
 import subprocess
 import tempfile
 import threading
+import websockets
 from config import TIMEOUTS
 from models.npcs import NPCS as NPC_DEFS
 
@@ -330,6 +335,92 @@ async def reset_game():
             print(f"  Reset failed: {r.status_code}")
 
 
+async def record_and_transcribe() -> str | None:
+    """
+    Record from the microphone and stream audio to Voxtral realtime via WebSocket.
+    Partial transcripts are printed as they arrive.
+    Press Enter to stop recording.
+    Returns the full transcript string, or None on failure.
+    """
+    try:
+        import sounddevice as sd
+    except ImportError:
+        print("  sounddevice not installed. Run: uv sync")
+        return None
+
+    WS_URL      = "ws://127.0.0.1:8000/api/voice/transcribe/realtime"
+    SAMPLE_RATE = 16000
+    CHUNK_MS    = 200                            # send a chunk every 200ms
+    CHUNK_FRAMES = int(SAMPLE_RATE * CHUNK_MS / 1000)
+
+    audio_queue:    asyncio.Queue = asyncio.Queue()
+    stop_recording: asyncio.Event = asyncio.Event()
+    transcript_parts: list[str]   = []
+    loop = asyncio.get_event_loop()
+
+    def audio_callback(indata, frames, time_info, status):
+        # indata: int16 numpy array (mono). Copy bytes into the async queue.
+        audio_queue.put_nowait(indata.tobytes())
+
+    print("\n  [Voice] Recording... press Enter to stop")
+    print("  Transcript: ", end="", flush=True)
+
+    try:
+        async with websockets.connect(WS_URL) as ws:
+
+            stream = sd.InputStream(
+                samplerate=SAMPLE_RATE,
+                channels=1,
+                dtype="int16",
+                blocksize=CHUNK_FRAMES,
+                callback=audio_callback,
+            )
+
+            async def wait_for_enter():
+                await loop.run_in_executor(None, sys.stdin.readline)
+                stop_recording.set()
+
+            async def send_loop():
+                while not stop_recording.is_set():
+                    try:
+                        chunk = await asyncio.wait_for(audio_queue.get(), timeout=0.3)
+                        await ws.send(chunk)
+                    except asyncio.TimeoutError:
+                        continue
+                # drain any remaining buffered chunks after Enter
+                while not audio_queue.empty():
+                    await ws.send(audio_queue.get_nowait())
+                await ws.send("STOP")
+
+            async def recv_loop():
+                async for raw in ws:
+                    msg = json.loads(raw)
+                    if msg["type"] == "delta":
+                        print(msg["text"], end="", flush=True)
+                        transcript_parts.append(msg["text"])
+                    elif msg["type"] == "done":
+                        break
+                    elif msg["type"] == "error":
+                        print(f"\n  [transcription error: {msg['message']}]")
+                        break
+
+            with stream:
+                enter_task = asyncio.create_task(wait_for_enter())
+                send_task  = asyncio.create_task(send_loop())
+                recv_task  = asyncio.create_task(recv_loop())
+
+                await enter_task                       # block until Enter pressed
+                await asyncio.gather(send_task, recv_task)  # finish send + receive
+
+    except Exception as e:
+        print(f"\n  [voice error: {e}]")
+        return None
+
+    transcript = "".join(transcript_parts).strip()
+    print()
+    return transcript or None
+
+
 async def conversation_loop(character_id: str):
     """Chat loop with a single NPC."""
     talk_data = await talk_to_npc(character_id)
@@ -343,7 +434,7 @@ async def conversation_loop(character_id: str):
     npc_name = talk_data.get("character_name", character_id)
 
     while True:
-        print(f"\n  (Type your message to {npc_name}, or 'back' to leave)\n")
+        print(f"\n  (Type your message to {npc_name}, 'v' to speak, or 'back' to leave)\n")
         try:
             user_input = input("  You: ").strip()
         except (EOFError, KeyboardInterrupt):
@@ -356,6 +447,14 @@ async def conversation_loop(character_id: str):
             await leave_npc(character_id)
             print(f"\n  You walk away from {npc_name}'s stall...")
             break
+
+        if user_input.lower() in ("v", "voice"):
+            transcript = await record_and_transcribe()
+            if not transcript:
+                print("  (no transcript — try again or type your message)")
+                continue
+            print(f"  [Sending: {transcript!r}]")
+            user_input = transcript
 
         state = await send_message(character_id, user_input)
         if state:

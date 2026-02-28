@@ -38,11 +38,11 @@ async def tts_stream_chunks(voice_id: str, text: str, mood_str: str):
         async with client.stream(
             "POST",
             f"{ELEVENLABS_BASE}/text-to-speech/{voice_id}/stream",
+            params={"output_format": "pcm_22050"},
             headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
             json={
                 "text": text,
                 "model_id": "eleven_turbo_v2_5",
-                "output_format": "pcm_22050",
                 "voice_settings": settings,
             },
         ) as response:
@@ -73,7 +73,6 @@ async def speak(req: VoiceRequest):
     payload = {
         "text": req.text,
         "model_id": "eleven_turbo_v2_5",  # lowest latency model
-        "output_format": "pcm_22050",
         "voice_settings": settings,
     }
 
@@ -82,6 +81,7 @@ async def speak(req: VoiceRequest):
             async with client.stream(
                 "POST",
                 f"{ELEVENLABS_BASE}/text-to-speech/{voice_id}/stream",
+                params={"output_format": "pcm_22050"},
                 headers={
                     "xi-api-key": ELEVENLABS_API_KEY,
                     "Content-Type": "application/json",

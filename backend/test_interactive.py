@@ -16,6 +16,7 @@ import sys
 import time
 import base64
 import os
+import struct
 import subprocess
 import tempfile
 import threading
@@ -131,12 +132,62 @@ async def talk_to_npc(character_id: str):
         return data
 
 
-def _play_audio_bytes_fallback(audio_bytes: bytes) -> None:
-    """afplay fallback when ffplay is unavailable (macOS only)."""
+def _pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 22050) -> bytes:
+    """Wrap raw signed-16-bit mono PCM in a WAV container so afplay can play it."""
+    num_channels    = 1
+    bits_per_sample = 16
+    data_size       = len(pcm_bytes)
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", 36 + data_size,
+        b"WAVE",
+        b"fmt ", 16,
+        1,                                                      # PCM
+        num_channels,
+        sample_rate,
+        sample_rate * num_channels * bits_per_sample // 8,     # byte rate
+        num_channels * bits_per_sample // 8,                   # block align
+        bits_per_sample,
+        b"data", data_size,
+    )
+    return header + pcm_bytes
+
+
+def _play_pcm_thread(pcm_data: bytes) -> None:
+    """Play raw PCM s16le 22050Hz mono in a background thread.
+    Tries afplay+WAV first (always available on macOS), then ffplay.
+    """
+    # afplay + WAV — most reliable on macOS
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(_pcm_to_wav(pcm_data))
+            tmp_path = f.name
+        subprocess.run(["afplay", tmp_path], check=False)
+        os.unlink(tmp_path)
+        return
+    except FileNotFoundError:
+        pass
+
+    # ffplay fallback — use communicate() to safely write large data
+    try:
+        proc = subprocess.Popen(
+            ["ffplay", "-f", "s16le", "-ar", "22050", "-ac", "1",
+             "-nodisp", "-autoexit", "-loglevel", "quiet", "pipe:0"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        proc.communicate(input=pcm_data)
+    except FileNotFoundError:
+        pass
+
+
+def _play_audio_bytes_fallback(pcm_bytes: bytes) -> None:
+    """Write PCM as WAV and play with afplay (macOS). Used when ffplay is absent."""
     tmp_path = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-            f.write(audio_bytes)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            f.write(_pcm_to_wav(pcm_bytes))
             tmp_path = f.name
         subprocess.run(["afplay", tmp_path], check=False)
     except FileNotFoundError:
@@ -152,14 +203,15 @@ def _play_audio_bytes_fallback(audio_bytes: bytes) -> None:
 async def send_message(character_id: str, message: str) -> dict | None:
     """
     SSE streamed response.
-    Text words and audio chunks arrive interleaved — audio is piped
-    to ffplay as each chunk arrives so playback starts immediately,
-    while text words continue printing in the same async loop.
+    PCM audio chunks arrive first and are collected in memory.
+    On [AUDIO_DONE] a background thread starts playing all audio at once,
+    then text words drip in — audio and text run concurrently.
     """
-    final_state   = None
-    audio_proc    = None          # ffplay subprocess (real-time streaming)
-    fallback_chunks: list[bytes] = []
-    ffplay_ok     = True
+    final_state       = None
+    pcm_chunks:  list[bytes] = []
+    audio_done        = False
+    audio_chunk_count = 0
+    audio_byte_count  = 0
 
     npc_name = next(
         (desc.split(" -- ")[0] for _, (cid, desc) in NPCS.items() if cid == character_id),
@@ -206,48 +258,33 @@ async def send_message(character_id: str, message: str) -> dict | None:
                         pass
 
                     elif data.startswith("[AUDIO] "):
-                        # Decode and pipe to ffplay — starts playback immediately
                         audio_chunk = base64.b64decode(data[8:])
-                        if ffplay_ok and audio_proc is None:
-                            try:
-                                audio_proc = await asyncio.create_subprocess_exec(
-                                    "ffplay",
-                                    "-nodisp", "-autoexit", "-loglevel", "quiet",
-                                    "-f", "mp3", "pipe:0",
-                                    stdin=asyncio.subprocess.PIPE,
-                                    stdout=asyncio.subprocess.DEVNULL,
-                                    stderr=asyncio.subprocess.DEVNULL,
-                                )
-                            except FileNotFoundError:
-                                ffplay_ok = False
-                        if audio_proc:
-                            audio_proc.stdin.write(audio_chunk)
-                            await audio_proc.stdin.drain()
-                        else:
-                            fallback_chunks.append(audio_chunk)
+                        pcm_chunks.append(audio_chunk)
+                        audio_chunk_count += 1
+                        audio_byte_count  += len(audio_chunk)
+
+                    elif data == "[AUDIO_DONE]":
+                        # All PCM received — start playback in background thread.
+                        # Text words arrive next; they drip while audio plays.
+                        audio_done = True
+                        if pcm_chunks:
+                            all_pcm = b"".join(pcm_chunks)
+                            threading.Thread(
+                                target=_play_pcm_thread,
+                                args=(all_pcm,),
+                                daemon=True,
+                            ).start()
 
                     else:
-                        # Text word — prints while audio streams in parallel
+                        # Text word
                         if t_first_token is None:
                             t_first_token = time.perf_counter()
                         print(data, end="", flush=True)
 
-    # Close ffplay stdin so it finishes and exits (-autoexit)
-    if audio_proc:
-        audio_proc.stdin.close()
-        print(f"\n  [audio: streaming via ffplay]", end="")
-    elif fallback_chunks:
-        total_kb = sum(len(c) for c in fallback_chunks) // 1024
-        print(f"\n  [audio: afplay fallback, {total_kb}KB]", end="")
-        threading.Thread(
-            target=_play_audio_bytes_fallback,
-            args=(b"".join(fallback_chunks),),
-            daemon=True,
-        ).start()
-    elif not ffplay_ok:
-        print(f"\n  [audio: ffplay not found -- install with: brew install ffmpeg]", end="")
-    else:
-        print(f"\n  [audio: none -- check ELEVENLABS_API_KEY and voice_id in logs]", end="")
+    if audio_done and pcm_chunks:
+        print(f"\n  [audio: {audio_byte_count // 1024}KB PCM playing]", end="")
+    elif not audio_done and not pcm_chunks:
+        print(f"\n  [audio: none — check ELEVENLABS_API_KEY and voice_id in logs]", end="")
 
     t_total = time.perf_counter() - t_start
     ttft    = f"{t_first_token - t_start:.2f}s" if t_first_token else "N/A"

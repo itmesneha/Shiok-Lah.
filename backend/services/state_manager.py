@@ -8,6 +8,7 @@ with in-memory caching for performance.
 
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from db.models import GameSession, CharacterBubble, Base, engine, init_db
 from models.npcs import NPCS
 import json
@@ -31,21 +32,29 @@ def create_game(session_id: str) -> Dict[str, Any]:
     # Check cache first
     if session_id in _game_cache:
         return _game_cache[session_id]
-    
+
     db_session = _get_session()
     try:
-        # Create game session
-        game = GameSession(
-            session_id=session_id,
-            global_step=0,
-            max_steps=30,
-            game_status='active',
-            secrets_found='[]'
-        )
-        db_session.add(game)
-        
-        # Create character bubbles for all NPCs
+        # Be idempotent: if session already exists in DB, return it.
+        game = db_session.query(GameSession).filter_by(session_id=session_id).first()
+        if not game:
+            game = GameSession(
+                session_id=session_id,
+                global_step=0,
+                max_steps=30,
+                game_status='active',
+                secrets_found='[]'
+            )
+            db_session.add(game)
+
+        # Ensure one bubble row per NPC (handles older/partial DB states).
+        existing = {
+            row.character_id
+            for row in db_session.query(CharacterBubble.character_id).filter_by(session_id=session_id).all()
+        }
         for character_id in NPCS.keys():
+            if character_id in existing:
+                continue
             bubble = CharacterBubble(
                 session_id=session_id,
                 character_id=character_id,
@@ -55,13 +64,20 @@ def create_game(session_id: str) -> Dict[str, Any]:
                 visit_count=0
             )
             db_session.add(bubble)
-        
+
         db_session.commit()
-        
-        # Load and cache the created game
+
+        # Invalidate any stale cached bubbles for this session.
+        keys_to_remove = [k for k in _bubble_cache.keys() if k.startswith(f"{session_id}:")]
+        for key in keys_to_remove:
+            _bubble_cache.pop(key, None)
+
         game_data = get_game(session_id)
         return game_data
-        
+    except IntegrityError:
+        # If another request created it concurrently, return existing session.
+        db_session.rollback()
+        return get_game(session_id)
     finally:
         db_session.close()
 

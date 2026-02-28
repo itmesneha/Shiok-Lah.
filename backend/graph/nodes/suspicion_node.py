@@ -123,7 +123,11 @@ async def suspicion_node(state: GameGraphState) -> dict:
     messages.append(HumanMessage(content=f"EVALUATE THIS MESSAGE: {user_message}"))
 
     llm = build_mistral_llm(streaming=False)
-    response = await llm.ainvoke(messages)
+    try:
+        response = await llm.ainvoke(messages)
+    except Exception as e:
+        logger.exception("[SUSPICION] LLM failed for %s: %s", state["character_id"], e)
+        return {"suspicion_delta": 0.0, "suspicion_reason": "llm_unavailable", "intent_category": "casual"}
     logger.debug("[SUSPICION RAW] character=%s | raw_output=%r", state["character_id"], response.content)
 
     result = _parse_result(response.content)

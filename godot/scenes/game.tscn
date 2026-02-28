@@ -1399,7 +1399,7 @@ layer = 10
 [node name="Player" parent="." unique_id=1189262612 instance=ExtResource("1_uwrxv")]
 top_level = true
 texture_filter = 1
-position = Vector2(87, 43)
+position = Vector2(-159, 35)
 
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=455526198]
 position = Vector2(-6, -2)

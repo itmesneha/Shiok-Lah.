@@ -126,7 +126,8 @@ func _send_message(message: String):
 	var sse_buffer = ""
 	var dialogue = ""
 	var state = {}
-	var got_audio = false
+	var sse_audio_bytes = PackedByteArray()
+	var sse_audio_started = false
 	var line_open = false
 	var stream_done = false
 	pcm_carry_byte = -1
@@ -149,31 +150,32 @@ func _send_message(message: String):
 				line = line.substr(0, line.length() - 1)
 			if line == "" or not line.begins_with("data: "):
 				continue
-			var data = _sanitize_display_text(line.substr(6))
-			if data.begins_with("[STATE]"):
+			var raw_data = line.substr(6)
+			if raw_data.begins_with("[STATE]"):
 				var json = JSON.new()
-				if json.parse(data.substr(8)) == OK:
+				if json.parse(raw_data.substr(8)) == OK:
 					state = json.get_data()
-			elif data.begins_with("[AUDIO]"):
-				var b64 = data.substr(8).strip_edges()
+			elif raw_data.begins_with("[AUDIO]"):
+				var b64 = raw_data.substr(8).strip_edges()
 				var audio_chunk = Marshalls.base64_to_raw(b64)
 				if audio_chunk.size() > 0:
-					got_audio = true
-					_queue_pcm_chunk(audio_chunk)
-				elif data == "[AUDIO_DONE]":
-					# Backend finished sending audio chunks for this turn.
-					pass
-				elif data.begins_with("[ERROR]"):
-					dialogue_text.append_text("\n[color=red]" + data.substr(7) + "[/color]\n")
-				elif data == "[DONE]":
-					stream_done = true
-					break
-				else:
-					if not line_open:
-						dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
-						line_open = true
-					dialogue_text.append_text(data)
-					dialogue += data
+					sse_audio_bytes.append_array(audio_chunk)
+			elif raw_data == "[AUDIO_DONE]":
+				if sse_audio_bytes.size() > 0 and not sse_audio_started:
+					_play_pcm_bytes(sse_audio_bytes)
+					sse_audio_started = true
+			elif raw_data.begins_with("[ERROR]"):
+				dialogue_text.append_text("\n[color=red]" + raw_data.substr(7) + "[/color]\n")
+			elif raw_data == "[DONE]":
+				stream_done = true
+				break
+			else:
+				var data = _sanitize_display_text(raw_data)
+				if not line_open:
+					dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
+					line_open = true
+				dialogue_text.append_text(data)
+				dialogue += data
 
 			if parsed_lines % 8 == 0:
 				await get_tree().process_frame
@@ -184,8 +186,9 @@ func _send_message(message: String):
 	# Handle final partial line (if server closes without trailing newline).
 	var trailing = sse_buffer.strip_edges()
 	if trailing.begins_with("data: "):
-		var trailing_data = _sanitize_display_text(trailing.substr(6))
-		if trailing_data != "[DONE]" and trailing_data != "[AUDIO_DONE]" and not trailing_data.begins_with("[STATE]") and not trailing_data.begins_with("[AUDIO]") and not trailing_data.begins_with("[ERROR]"):
+		var trailing_raw = trailing.substr(6)
+		if trailing_raw != "[DONE]" and trailing_raw != "[AUDIO_DONE]" and not trailing_raw.begins_with("[STATE]") and not trailing_raw.begins_with("[AUDIO]") and not trailing_raw.begins_with("[ERROR]"):
+			var trailing_data = _sanitize_display_text(trailing_raw)
 			if not line_open:
 				dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
 				line_open = true
@@ -195,8 +198,8 @@ func _send_message(message: String):
 	if line_open:
 		dialogue_text.append_text("\n")
 
-	# Fallback: if no streamed audio arrived, request /voice/speak.
-	if not got_audio and dialogue.strip_edges() != "":
+	# Fallback: if SSE audio did not start, request /voice/speak.
+	if not sse_audio_started and dialogue.strip_edges() != "":
 		var mood_for_voice = str(state.get("mood", current_mood))
 		_request_voice_line(dialogue.strip_edges(), mood_for_voice)
 	

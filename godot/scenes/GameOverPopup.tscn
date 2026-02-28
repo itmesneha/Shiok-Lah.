@@ -1,0 +1,89 @@
+[gd_scene format=3 uid="uid://2k4m2a5v1hg2"]
+
+[ext_resource type="Script" path="res://scripts/game_over_popup.gd" id="1_pop"]
+[ext_resource type="FontFile" path="res://assets/fonts/Minecraft.ttf" id="2_font"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_title"]
+font = ExtResource("2_font")
+font_size = 24
+font_color = Color(1, 0.95, 0.82, 1)
+outline_size = 3
+outline_color = Color(0.07, 0.07, 0.07, 1)
+shadow_color = Color(0.07, 0.07, 0.07, 1)
+shadow_offset = Vector2(0.2, 0.2)
+
+[sub_resource type="LabelSettings" id="LabelSettings_message"]
+font = ExtResource("2_font")
+font_size = 13
+font_color = Color(0.96, 0.91, 0.76, 1)
+outline_size = 2
+outline_color = Color(0.07, 0.07, 0.07, 1)
+shadow_color = Color(0.07, 0.07, 0.07, 1)
+shadow_offset = Vector2(0.2, 0.2)
+
+[node name="GameOverPopup" type="CanvasLayer"]
+script = ExtResource("1_pop")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer"]
+custom_minimum_size = Vector2(520, 260)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Game Over"
+horizontal_alignment = 1
+label_settings = SubResource("LabelSettings_title")
+
+[node name="Message" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+text = "You got caught."
+autowrap_mode = 3
+horizontal_alignment = 1
+vertical_alignment = 1
+label_settings = SubResource("LabelSettings_message")
+
+[node name="Buttons" type="HBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 14
+
+[node name="RestartButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+custom_minimum_size = Vector2(180, 40)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 12
+text = "Back To Menu"
+
+[node name="CloseButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+custom_minimum_size = Vector2(120, 40)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 12
+text = "Close"

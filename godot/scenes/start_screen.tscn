@@ -1,0 +1,329 @@
+[gd_scene format=3 uid="uid://bfrhdlk331ugw"]
+
+[ext_resource type="Script" uid="uid://clqdni8vjikpf" path="res://scripts/start_screen.gd" id="1_d2xok"]
+[ext_resource type="Texture2D" uid="uid://cs2j2ysibrugx" path="res://assets/characters/uncleRobert/Subtle-breathing-ani.png" id="3_5pab1"]
+[ext_resource type="FontFile" uid="uid://d1fx7ppepkjlv" path="res://assets/fonts/Minecraft.ttf" id="3_mcfont"]
+[ext_resource type="Texture2D" uid="uid://bf4jh7qa2iy0k" path="res://assets/characters/uncleAhKow/idle-1.png" id="4_o30b1"]
+[ext_resource type="Texture2D" uid="uid://dg3fdh5f6urh8" path="res://assets/characters/auntieSiti/idle-talking.png" id="5_ka6nf"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ws7p0"]
+atlas = ExtResource("3_5pab1")
+region = Rect2(0, 0, 49, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ecdxc"]
+atlas = ExtResource("3_5pab1")
+region = Rect2(49, 0, 49, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_qls88"]
+atlas = ExtResource("3_5pab1")
+region = Rect2(0, 64, 49, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pcj7n"]
+atlas = ExtResource("3_5pab1")
+region = Rect2(49, 64, 49, 64)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_bdg0b"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ws7p0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ecdxc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qls88")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pcj7n")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xfy2r"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(0, 0, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lt4el"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(36, 0, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_phykr"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(72, 0, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_q3i3u"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(0, 68, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2banv"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(36, 68, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ytx0m"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(72, 68, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_a4px2"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(0, 136, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_37qom"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(36, 136, 36, 68)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_a7uje"]
+atlas = ExtResource("4_o30b1")
+region = Rect2(72, 136, 36, 68)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_8c457"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xfy2r")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lt4el")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_phykr")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_q3i3u")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_2banv")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ytx0m")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_a4px2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_37qom")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_a7uje")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_3opy0"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(0, 0, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_53rsf"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(56, 0, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_qlcmr"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(112, 0, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_y5w4g"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(0, 66, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_r6qw7"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(56, 66, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0y2qr"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(112, 66, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bjnkw"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(0, 132, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_v6sgr"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(56, 132, 56, 66)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8ijck"]
+atlas = ExtResource("5_ka6nf")
+region = Rect2(112, 132, 56, 66)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_1jj22"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_3opy0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_53rsf")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qlcmr")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_y5w4g")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_r6qw7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0y2qr")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bjnkw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_v6sgr")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8ijck")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[sub_resource type="LabelSettings" id="LabelSettings_title"]
+font = ExtResource("3_mcfont")
+font_size = 30
+font_color = Color(1, 0.95, 0.82, 1)
+outline_size = 3
+outline_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_offset = Vector2(0.2, 0.2)
+
+[sub_resource type="LabelSettings" id="LabelSettings_small"]
+font = ExtResource("3_mcfont")
+font_size = 17
+font_color = Color(0.96, 0.91, 0.76, 1)
+outline_size = 2
+outline_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_offset = Vector2(0.2, 0.2)
+
+[node name="StartScreen" type="Control" unique_id=176618972]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_d2xok")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1783445172]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.07, 0.07, 0.07, 1)
+
+[node name="Overlay" type="ColorRect" parent="." unique_id=553125690]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.35)
+
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1342904183]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="CenterContainer" unique_id=492338311]
+custom_minimum_size = Vector2(860, 540)
+layout_mode = 2
+
+[node name="CharacterPreviews" type="Node2D" parent="CenterContainer/PanelContainer" unique_id=1209441711]
+position = Vector2(0, 8)
+
+[node name="RobertPreview" type="AnimatedSprite2D" parent="CenterContainer/PanelContainer/CharacterPreviews" unique_id=2135629854]
+texture_filter = 1
+position = Vector2(164, 144)
+scale = Vector2(1.9200001, 1.5999999)
+sprite_frames = SubResource("SpriteFrames_bdg0b")
+
+[node name="AhKowPreview" type="AnimatedSprite2D" parent="CenterContainer/PanelContainer/CharacterPreviews" unique_id=1709904257]
+texture_filter = 1
+position = Vector2(663, 140)
+scale = Vector2(1.7942288, 1.4400023)
+sprite_frames = SubResource("SpriteFrames_8c457")
+
+[node name="SitiPreview" type="AnimatedSprite2D" parent="CenterContainer/PanelContainer/CharacterPreviews" unique_id=1598847825]
+texture_filter = 1
+position = Vector2(422, 141.00002)
+scale = Vector2(1.6526847, 1.5741646)
+sprite_frames = SubResource("SpriteFrames_1jj22")
+
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer/PanelContainer" unique_id=172767595]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer" unique_id=466646951]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=2043529265]
+layout_mode = 2
+text = "SHIOK LAH!"
+label_settings = SubResource("LabelSettings_title")
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1843224809]
+layout_mode = 2
+text = "Hawker Secrets - Social Deduction"
+label_settings = SubResource("LabelSettings_small")
+horizontal_alignment = 1
+
+[node name="SpacerTop" type="Control" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=61250135]
+custom_minimum_size = Vector2(0, 140)
+layout_mode = 2
+
+[node name="Instructions" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=2130146784]
+custom_minimum_size = Vector2(0, 170)
+layout_mode = 2
+text = "How To Play
+- Walk to NPCs and press E to talk.
+- Build trust, uncover each hawker's secret ingredient.
+- Watch Suspicion closely. Too high means game over.
+- Read mood changes and adapt your questions.
+
+Controls: Move (Arrows), Interact (E), Close dialogue (Esc)"
+label_settings = SubResource("LabelSettings_small")
+autowrap_mode = 3
+
+[node name="InteractStylePrompt" type="Label" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1357793483]
+layout_mode = 2
+text = "Press Enter to start (or click Start Game)"
+label_settings = SubResource("LabelSettings_small")
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1927665710]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="StartButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=122391168]
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_mcfont")
+theme_override_font_sizes/font_size = 18
+text = "Start Game"
+
+[node name="QuitButton" type="Button" parent="CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=1106288017]
+visible = false
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_mcfont")
+theme_override_font_sizes/font_size = 18
+text = "Quit"

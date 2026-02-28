@@ -154,26 +154,25 @@ func _send_message(message: String):
 				var json = JSON.new()
 				if json.parse(data.substr(8)) == OK:
 					state = json.get_data()
-			elif data.begins_with("[AUDIO]"):
+			elif data.begins_with("[AUDIO] "):
 				var b64 = data.substr(8).strip_edges()
 				var audio_chunk = Marshalls.base64_to_raw(b64)
 				if audio_chunk.size() > 0:
 					got_audio = true
 					_queue_pcm_chunk(audio_chunk)
-				elif data == "[AUDIO_DONE]":
-					# Backend finished sending audio chunks for this turn.
-					pass
-				elif data.begins_with("[ERROR]"):
-					dialogue_text.append_text("\n[color=red]" + data.substr(7) + "[/color]\n")
-				elif data == "[DONE]":
-					stream_done = true
-					break
-				else:
-					if not line_open:
-						dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
-						line_open = true
-					dialogue_text.append_text(data)
-					dialogue += data
+			elif data == "[AUDIO_DONE]":
+				pass
+			elif data.begins_with("[ERROR]"):
+				dialogue_text.append_text("\n[color=red]" + data.substr(7) + "[/color]\n")
+			elif data == "[DONE]":
+				stream_done = true
+				break
+			else:
+				if not line_open:
+					dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
+					line_open = true
+				dialogue_text.append_text(data)
+				dialogue += data
 
 			if parsed_lines % 8 == 0:
 				await get_tree().process_frame

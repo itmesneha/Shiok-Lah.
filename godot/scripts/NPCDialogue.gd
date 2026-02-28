@@ -23,6 +23,8 @@ const NPC_TYPEWRITER_DELAY := 0.02
 const API_HOST := "localhost"
 const API_PORT := 8000
 const API_MESSAGE_PATH := "/api/game/message"
+const GAME_OVER_POPUP_SCENE := preload("res://scenes/GameOverPopup.tscn")
+const START_MENU_SCENE_PATH := "res://scenes/start_screen.tscn"
 
 func _sanitize_display_text(text: String) -> String:
 	# Remove wrapping quote glyphs that sometimes leak from model output.
@@ -46,6 +48,12 @@ func _ready():
 func _input(event):
 	if Input.is_action_just_pressed("ui_cancel"):
 		close_dialogue()
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F9:
+		await _show_game_over_popup({
+			"game_over": true,
+			"win": false,
+			"loss_reason": "Manual test popup"
+		})
 
 func _on_message_submitted(message: String):
 	if message.strip_edges() == "" or is_waiting:
@@ -174,6 +182,9 @@ func _send_message(message: String):
 	# Update UI with new game state
 	if state.size() > 0:
 		_update_game_state(state)
+		if is_queued_for_deletion():
+			client.close()
+			return
 
 	client.close()
 	
@@ -199,23 +210,59 @@ func _update_game_state(state: Dictionary):
 	# Tell GameState to update
 	GameState.update_npc_state(npc_id, state)
 	
-	# Handle win/lose
-	if state.get("game_over", false):
-		await get_tree().create_timer(1.5).timeout
-		if state.get("win", false):
-			_on_win()
-		else:
-			_on_lose()
+	# Handle terminal state (backend payload can vary by route/version).
+	var is_terminal = bool(state.get("game_over", false))
+	var game_status = str(state.get("game_status", "active"))
+	if game_status == "lost" or game_status == "won" or game_status == "game_over":
+		is_terminal = true
+	if bool(state.get("force_leave", false)):
+		is_terminal = true
+	if state.get("loss_reason", null) != null:
+		is_terminal = true
+	if suspicion >= 0.95:
+		is_terminal = true
 
-func _on_win():
-	dialogue_text.append_text("\n[color=green]🎉 You got the secret! The recipe has been revealed![/color]\n")
-	await get_tree().create_timer(2.0).timeout
+	if is_terminal:
+		await _show_game_over_popup(state)
+		return
+
+func _show_game_over_popup(state: Dictionary):
+	var popup = GAME_OVER_POPUP_SCENE.instantiate()
+	get_tree().root.add_child(popup)
+	var did_win = bool(state.get("win", false))
+	var loss_reason = str(state.get("loss_reason", ""))
+	popup.configure(did_win, loss_reason)
+	var go_to_menu = await popup.action_selected
+	if go_to_menu:
+		await _reset_current_round()
+		get_tree().change_scene_to_file(START_MENU_SCENE_PATH)
+		return
 	close_dialogue()
 
-func _on_lose():
-	dialogue_text.append_text("\n[color=red]💀 Uncle Robert threw you out![/color]\n")
-	await get_tree().create_timer(2.0).timeout
-	close_dialogue()
+func _reset_current_round():
+	var http = HTTPRequest.new()
+	add_child(http)
+	var body = JSON.stringify({
+		"session_id": GameState.session_id
+	})
+	var error = http.request(
+		"http://localhost:8000/api/game/reset",
+		["Content-Type: application/json"],
+		HTTPClient.METHOD_POST,
+		body
+	)
+	if error != OK:
+		http.queue_free()
+		dialogue_text.append_text("\n[color=red]Could not reset the round.[/color]\n")
+		return
+	var response = await http.request_completed
+	http.queue_free()
+	var response_code = int(response[1])
+	if response_code != 200:
+		dialogue_text.append_text("\n[color=red]Reset failed (" + str(response_code) + ").[/color]\n")
+		return
+	GameState.collected_secrets.clear()
+	GameState.npc_states.clear()
 
 func _flash_suspicion_bar():
 	# Quick red flash to signal danger
@@ -247,6 +294,17 @@ func _on_state_checked(result, response_code, headers, body, http):
 	if game_state.has("error"):
 		_start_game()
 		return
+
+	# If session is already terminal, show popup immediately.
+	var loaded_status = str(game_state.get("game_status", "active"))
+	if loaded_status != "active":
+		await _show_game_over_popup({
+			"game_over": true,
+			"win": loaded_status == "won",
+			"loss_reason": "Round already ended. Restart to play again."
+		})
+		return
+
 	_apply_state_snapshot(game_state)
 	_start_talk()
 

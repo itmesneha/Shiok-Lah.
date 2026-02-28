@@ -3,6 +3,24 @@
 [ext_resource type="Script" uid="uid://dg8ho100tk4fq" path="res://scripts/NPCDialogue.gd" id="1_8p1en"]
 [ext_resource type="PackedScene" path="res://scenes/MoodIndicator.tscn" id="2_8mcn1"]
 [ext_resource type="Texture2D" uid="uid://c3v04of4xccbu" path="res://assets/moods/16x16_emoji_asset_pack_v1.1.png" id="3_jd4t4"]
+[ext_resource type="FontFile" uid="uid://d1fx7ppepkjlv" path="res://assets/fonts/Minecraft.ttf" id="4_mcfont"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_npc_name"]
+font = ExtResource("4_mcfont")
+font_color = Color(1, 0.95, 0.82, 1)
+outline_size = 2
+outline_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_offset = Vector2(0.2, 0.2)
+
+[sub_resource type="LabelSettings" id="LabelSettings_npc_small"]
+font = ExtResource("4_mcfont")
+font_size = 11
+font_color = Color(0.96, 0.91, 0.76, 1)
+outline_size = 2
+outline_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_color = Color(0.0705882, 0.0705882, 0.0705882, 1)
+shadow_offset = Vector2(0.2, 0.2)
 
 [node name="NpcDialogue" type="CanvasLayer" unique_id=1693681688]
 script = ExtResource("1_8p1en")
@@ -31,17 +49,25 @@ custom_minimum_size = Vector2(0, 280)
 layout_mode = 2
 
 [node name="NPCNameLabel" type="Label" parent="DialoguePanel/VBoxContainer" unique_id=796666116]
+visible = false
 layout_mode = 2
+theme_override_fonts/font = ExtResource("4_mcfont")
+theme_override_font_sizes/font_size = 20
+label_settings = SubResource("LabelSettings_npc_name")
 
 [node name="DialogueText" type="RichTextLabel" parent="DialoguePanel/VBoxContainer" unique_id=1569567812]
 custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_fonts/normal_font = ExtResource("4_mcfont")
+theme_override_font_sizes/normal_font_size = 20
 bbcode_enabled = true
 scroll_following = true
 
 [node name="PlayerInput" type="LineEdit" parent="DialoguePanel/VBoxContainer" unique_id=665097009]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("4_mcfont")
+theme_override_font_sizes/font_size = 20
 placeholder_text = "Say Something..."
 
 [node name="SuspicionBar" type="HBoxContainer" parent="." unique_id=1417950997]
@@ -54,6 +80,9 @@ grow_horizontal = 0
 
 [node name="SuspicionLabel" type="Label" parent="SuspicionBar" unique_id=703017653]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("4_mcfont")
+theme_override_font_sizes/font_size = 20
+label_settings = SubResource("LabelSettings_npc_small")
 
 [node name="SuspicionSegments" type="HBoxContainer" parent="SuspicionBar" unique_id=1239170825]
 layout_mode = 2
@@ -120,38 +149,42 @@ warm_sprite_path = NodePath("WarmSprite")
 suspicious_sprite_path = NodePath("SuspiciousSprite")
 hostile_sprite_path = NodePath("HostileSprite")
 impressed_sprite_path = NodePath("ImpressedSprite")
+actor_font = ExtResource("4_mcfont")
+status_font = ExtResource("4_mcfont")
+actor_font_size = 20
+status_font_size = 20
 
 [node name="NeutralSprite" type="Sprite2D" parent="MoodIndicator" unique_id=2085912890]
-position = Vector2(144, 17)
-scale = Vector2(2, 2)
+position = Vector2(131.92, 28.16)
+scale = Vector2(3.24, 2.96)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(1, -1, 15, 17)
 
 [node name="WarmSprite" type="Sprite2D" parent="MoodIndicator" unique_id=395988409]
-position = Vector2(144, 17)
-scale = Vector2(2, 2)
+position = Vector2(131.92, 28.16)
+scale = Vector2(3.24, 2.96)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(32, 1, 15, 14)
 
 [node name="SuspiciousSprite" type="Sprite2D" parent="MoodIndicator" unique_id=541634501]
-position = Vector2(144, 17)
-scale = Vector2(2, 2)
+position = Vector2(131.92, 28.16)
+scale = Vector2(3.24, 2.96)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(113, 96, 14, 15)
 
 [node name="HostileSprite" type="Sprite2D" parent="MoodIndicator" unique_id=1653611935]
-position = Vector2(144, 17)
-scale = Vector2(2, 2)
+position = Vector2(131.92, 28.16)
+scale = Vector2(3.24, 2.96)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(32, 112, 16, 16)
 
 [node name="ImpressedSprite" type="Sprite2D" parent="MoodIndicator" unique_id=464458884]
-position = Vector2(144, 17)
-scale = Vector2(2, 2)
+position = Vector2(131.92, 28.16)
+scale = Vector2(3.24, 2.96)
 texture = ExtResource("3_jd4t4")
 region_enabled = true
 region_rect = Rect2(16, 33, 16, 15)

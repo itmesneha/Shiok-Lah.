@@ -8,10 +8,12 @@
 [ext_resource type="Texture2D" uid="uid://dsboqgkri5g84" path="res://assets/worldBuilding/asian_food_resized.png" id="5_iywne"]
 [ext_resource type="Script" uid="uid://cynh5y4wsukts" path="res://scripts/uncle_robert_npc.gd" id="5_u5sy4"]
 [ext_resource type="Texture2D" uid="uid://cs2j2ysibrugx" path="res://assets/characters/uncleRobert/Subtle-breathing-ani.png" id="7_gee14"]
+[ext_resource type="FontFile" uid="uid://d1fx7ppepkjlv" path="res://assets/fonts/Minecraft.ttf" id="8_kvuet"]
 [ext_resource type="Texture2D" uid="uid://bf4jh7qa2iy0k" path="res://assets/characters/uncleAhKow/idle-1.png" id="9_0tnpc"]
 [ext_resource type="Script" uid="uid://ck4vued850sd5" path="res://scripts/uncle_ah_kow.gd" id="10_l2y6e"]
 [ext_resource type="Texture2D" uid="uid://dg3fdh5f6urh8" path="res://assets/characters/auntieSiti/idle-talking.png" id="11_5kse0"]
-[ext_resource type="Script" path="res://scripts/auntie_siti_npc.gd" id="12_9f5me"]
+[ext_resource type="Script" uid="uid://bkqurycwghna1" path="res://scripts/auntie_siti_npc.gd" id="12_9f5me"]
+[ext_resource type="AudioStream" path="res://assets/background_score/swing_jazz.ogg" id="13_amb00"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_lnu2h"]
 texture = ExtResource("2_yqjtg")
@@ -935,12 +937,9 @@ animations = [{
 [sub_resource type="CircleShape2D" id="CircleShape2D_u5sy4"]
 radius = 28.01785
 
-[sub_resource type="SystemFont" id="SystemFont_gee14"]
-subpixel_positioning = 0
-
 [sub_resource type="LabelSettings" id="LabelSettings_0tnpc"]
-font = SubResource("SystemFont_gee14")
-font_size = 11
+font = ExtResource("8_kvuet")
+font_size = 9
 outline_size = 2
 outline_color = Color(0.07058824, 0.07058824, 0.07058824, 1)
 shadow_color = Color(0.07058824, 0.07058824, 0.07058824, 1)
@@ -1092,6 +1091,11 @@ animations = [{
 }]
 
 [node name="Game" type="Node2D" unique_id=428515844]
+
+[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("13_amb00")
+volume_db = -22.0
+autoplay = true
 
 [node name="Player" parent="." unique_id=1189262612 instance=ExtResource("1_uwrxv")]
 top_level = true
@@ -1538,6 +1542,7 @@ region_rect = Rect2(708, 543, 48, 69)
 script = ExtResource("10_l2y6e")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="uncleAhKowNPC" unique_id=167798357]
+texture_filter = 1
 position = Vector2(-4.7683716e-07, 1.0000019)
 scale = Vector2(0.7222222, 0.6911765)
 sprite_frames = SubResource("SpriteFrames_5newe")
@@ -1572,6 +1577,7 @@ position = Vector2(-248, 183)
 script = ExtResource("12_9f5me")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="auntieSitiNPC" unique_id=145261391]
+texture_filter = 1
 scale = Vector2(0.6, 0.6)
 sprite_frames = SubResource("SpriteFrames_siti0")
 animation = &"idle"

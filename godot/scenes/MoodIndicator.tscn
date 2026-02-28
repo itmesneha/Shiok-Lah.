@@ -1,7 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3]
 
-[ext_resource type="Script" path="res://scripts/MoodIndicator.gd" id="1_f1s8l"]
-[ext_resource type="FontFile" path="res://assets/fonts/Minecraft.ttf" id="2_mcfont"]
+[ext_resource type="Script" uid="uid://bo3ygaxsll6t8" path="res://scripts/MoodIndicator.gd" id="1_f1s8l"]
+[ext_resource type="FontFile" uid="uid://d14j8f17cq2j" path="res://assets/fonts/Minecraft.ttf" id="2_mcfont"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_mood_title"]
 font = ExtResource("2_mcfont")

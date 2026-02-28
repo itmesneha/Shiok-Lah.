@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://clqdni8vjikpf" path="res://scripts/start_screen.gd" id="1_d2xok"]
 [ext_resource type="Texture2D" uid="uid://cs2j2ysibrugx" path="res://assets/characters/uncleRobert/Subtle-breathing-ani.png" id="3_5pab1"]
-[ext_resource type="FontFile" uid="uid://d1fx7ppepkjlv" path="res://assets/fonts/Minecraft.ttf" id="3_mcfont"]
+[ext_resource type="FontFile" uid="uid://d14j8f17cq2j" path="res://assets/fonts/Minecraft.ttf" id="3_mcfont"]
 [ext_resource type="Texture2D" uid="uid://bf4jh7qa2iy0k" path="res://assets/characters/uncleAhKow/idle-1.png" id="4_o30b1"]
 [ext_resource type="Texture2D" uid="uid://dg3fdh5f6urh8" path="res://assets/characters/auntieSiti/idle-talking.png" id="5_ka6nf"]
 

@@ -19,6 +19,7 @@ from models.schemas import (
 from models.npcs import NPCS
 from services import state_manager, context_manager
 from graph.conversation_graph import compile_conversation_graph
+from routes.voice import tts_stream_chunks, ELEVENLABS_API_KEY
 router = APIRouter()
 
 DRIP_DELAY = 0.08   # seconds per word
@@ -33,20 +34,53 @@ graph = compile_conversation_graph()
 
 
 async def _stream_pregenerated(text: str, audio_bytes: bytes | None, voice_enabled: bool):
-    """Sends all PCM audio chunks first, signals [AUDIO_DONE], then drips text word-by-word.
-    Godot starts AudioStreamGenerator playback on [AUDIO_DONE] so audio and
-    typewriter text run simultaneously.
-    """
-    if voice_enabled and audio_bytes:
-        for i in range(0, len(audio_bytes), AUDIO_CHUNK):
-            b64 = base64.b64encode(audio_bytes[i:i + AUDIO_CHUNK]).decode()
+    """Interleave audio and text so clients can render and play both live."""
+    words = text.split()
+    word_idx = 0
+
+    audio_idx = 0
+    audio_len = len(audio_bytes) if (voice_enabled and audio_bytes) else 0
+    has_audio = audio_len > 0
+
+    # Emit audio chunks and text in the same streaming phase.
+    while word_idx < len(words) or (has_audio and audio_idx < audio_len):
+        if has_audio and audio_idx < audio_len:
+            end = min(audio_idx + AUDIO_CHUNK, audio_len)
+            b64 = base64.b64encode(audio_bytes[audio_idx:end]).decode()
             yield sse(f"[AUDIO] {b64}")
-            await asyncio.sleep(0)  # yield between chunks so the event loop stays responsive
+            audio_idx = end
+
+        if word_idx < len(words):
+            yield sse(words[word_idx] + " ")
+            word_idx += 1
+            await asyncio.sleep(DRIP_DELAY)
+        else:
+            await asyncio.sleep(0)
+
+    if has_audio:
         yield sse("[AUDIO_DONE]")
 
-    for word in text.split():
-        yield sse(word + " ")
-        await asyncio.sleep(DRIP_DELAY)
+
+async def _ensure_audio_bytes(character_id: str, text: str, mood: str, audio_bytes: bytes | None, voice_enabled: bool):
+    """Ensure we have pre-generated PCM bytes for SSE audio events."""
+    if not voice_enabled or audio_bytes:
+        return audio_bytes
+    if not ELEVENLABS_API_KEY:
+        return None
+
+    npc = NPCS.get(character_id, {})
+    voice_id = npc.get("voice_id", "")
+    if not voice_id:
+        return None
+
+    try:
+        chunks = []
+        async for chunk in tts_stream_chunks(voice_id, text, mood):
+            chunks.append(chunk)
+        return b"".join(chunks)
+    except Exception as e:
+        log.warning("SSE fallback TTS failed for %s: %s", character_id, e)
+        return None
 
 
 @router.post("/start", response_model=StartGameResponse)
@@ -110,7 +144,13 @@ async def message(req: MessageRequest):
                 text = final_state.get("character_response", "")
 
                 if text:
-                    audio_bytes = final_state.get("audio_bytes")
+                    audio_bytes = await _ensure_audio_bytes(
+                        req.character_id,
+                        text,
+                        final_state.get("mood", "neutral"),
+                        final_state.get("audio_bytes"),
+                        req.voice_enabled,
+                    )
                     async for chunk in _stream_pregenerated(text, audio_bytes, req.voice_enabled):
                         yield chunk
 

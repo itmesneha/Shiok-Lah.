@@ -155,22 +155,20 @@ func _send_message(message: String):
 				var json = JSON.new()
 				if json.parse(raw_data.substr(8)) == OK:
 					state = json.get_data()
-			elif raw_data.begins_with("[AUDIO]"):
-				var b64 = raw_data.substr(8).strip_edges()
+			elif data.begins_with("[AUDIO] "):
+				var b64 = data.substr(8).strip_edges()
 				var audio_chunk = Marshalls.base64_to_raw(b64)
 				if audio_chunk.size() > 0:
-					sse_audio_bytes.append_array(audio_chunk)
-			elif raw_data == "[AUDIO_DONE]":
-				if sse_audio_bytes.size() > 0 and not sse_audio_started:
-					_play_pcm_bytes(sse_audio_bytes)
-					sse_audio_started = true
-			elif raw_data.begins_with("[ERROR]"):
-				dialogue_text.append_text("\n[color=red]" + raw_data.substr(7) + "[/color]\n")
-			elif raw_data == "[DONE]":
+					got_audio = true
+					_queue_pcm_chunk(audio_chunk)
+			elif data == "[AUDIO_DONE]":
+				pass
+			elif data.begins_with("[ERROR]"):
+				dialogue_text.append_text("\n[color=red]" + data.substr(7) + "[/color]\n")
+			elif data == "[DONE]":
 				stream_done = true
 				break
 			else:
-				var data = _sanitize_display_text(raw_data)
 				if not line_open:
 					dialogue_text.append_text("\n[color=yellow]" + NPC_NAMES.get(npc_id, npc_id) + ":[/color] ")
 					line_open = true

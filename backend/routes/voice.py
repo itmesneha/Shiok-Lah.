@@ -1,5 +1,16 @@
-from fastapi import APIRouter, HTTPException
+import asyncio
+
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
+from mistralai import Mistral
+from mistralai.extra.realtime import UnknownRealtimeEvent
+from mistralai.models import (
+    AudioFormat,
+    RealtimeTranscriptionError,
+    RealtimeTranscriptionSessionCreated,
+    TranscriptionStreamDone,
+    TranscriptionStreamTextDelta,
+)
 from models.schemas import VoiceRequest, SoundEffectRequest, Mood
 from models.npcs import get_npc
 from dotenv import load_dotenv
@@ -12,6 +23,11 @@ router = APIRouter()
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 ELEVENLABS_BASE = "https://api.elevenlabs.io/v1"
+
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+# Supported sample rates: 8000, 16000, 22050, 44100, 48000
+VOXTRAL_SAMPLE_RATE = 16000
+VOXTRAL_MODEL = "voxtral-mini-transcribe-realtime-2602"
 
 # Mood -> ElevenLabs voice settings
 # stability: lower = more expressive/variable. similarity_boost: higher = stays truer to voice
@@ -150,3 +166,84 @@ async def list_voices():
             headers={"xi-api-key": ELEVENLABS_API_KEY},
         )
     return response.json()
+
+
+@router.websocket("/transcribe/realtime")
+async def transcribe_realtime(websocket: WebSocket):
+    """
+    Realtime speech-to-text via Mistral Voxtral.
+
+    Protocol:
+      Client → binary frames : raw PCM (pcm_s16le, 16kHz, mono)
+      Client → text "STOP"   : signal end of speech
+      Server → {"type": "delta", "text": "..."}  : partial transcript
+      Server → {"type": "done"}                  : transcription complete
+      Server → {"type": "error", "message": "..."}: error
+    """
+    await websocket.accept()
+
+    if not MISTRAL_API_KEY:
+        await websocket.send_json({"type": "error", "message": "MISTRAL_API_KEY not set"})
+        await websocket.close()
+        return
+
+    client = Mistral(api_key=MISTRAL_API_KEY)
+    audio_queue: asyncio.Queue = asyncio.Queue()
+
+    async def audio_stream():
+        """Feed queued PCM chunks into the Voxtral SDK async iterable."""
+        while True:
+            chunk = await audio_queue.get()
+            if chunk is None:   # None = sentinel signalling end of stream
+                return
+            yield chunk
+
+    async def receive_loop():
+        """Pump incoming WebSocket messages into the audio queue."""
+        try:
+            while True:
+                message = await websocket.receive()
+                if message["type"] == "websocket.disconnect":
+                    await audio_queue.put(None)
+                    return
+                if "bytes" in message and message["bytes"]:
+                    await audio_queue.put(message["bytes"])
+                elif "text" in message and message.get("text") == "STOP":
+                    await audio_queue.put(None)
+                    return
+        except WebSocketDisconnect:
+            await audio_queue.put(None)
+
+    receive_task = asyncio.create_task(receive_loop())
+
+    try:
+        audio_format = AudioFormat(encoding="pcm_s16le", sample_rate=VOXTRAL_SAMPLE_RATE)
+        async for event in client.audio.realtime.transcribe_stream(
+            audio_stream=audio_stream(),
+            model=VOXTRAL_MODEL,
+            audio_format=audio_format,
+            target_streaming_delay_ms=240,
+        ):
+            if isinstance(event, TranscriptionStreamTextDelta):
+                await websocket.send_json({"type": "delta", "text": event.text})
+            elif isinstance(event, TranscriptionStreamDone):
+                await websocket.send_json({"type": "done"})
+                break
+            elif isinstance(event, RealtimeTranscriptionError):
+                await websocket.send_json({"type": "error", "message": str(event)})
+                break
+            elif isinstance(event, (RealtimeTranscriptionSessionCreated, UnknownRealtimeEvent)):
+                pass  # no-op — session setup and unknown events are safe to ignore
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"type": "error", "message": str(e)})
+        except Exception:
+            pass
+    finally:
+        receive_task.cancel()
+        try:
+            await websocket.close()
+        except Exception:
+            pass

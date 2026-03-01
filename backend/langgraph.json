@@ -1,0 +1,18 @@
+{
+  "graphs": {
+    "shiok_lah_conversation": "./graph/conversation_graph.py:compile_conversation_graph"
+  },
+  "env": ".env",
+  "dependencies": [
+    "langchain-mistralai>=1.1.0",
+    "langchain-core>=0.3.0",
+    "langgraph>=0.2.0",
+    "sqlalchemy>=2.0.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "elevenlabs>=1.0.0",
+    "mistralai>=1.0.0",
+    "fastapi[standard]>=0.115.0",
+    "uvicorn[standard]>=0.30.0"
+  ]
+}

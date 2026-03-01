@@ -514,20 +514,23 @@ func _on_talk_started(result, response_code, headers, body, http):
 	
 	# /talk returns immediate dialogue opener in JSON.
 	var opener = str(data.get("dialogue", ""))
+	var first_visit = bool(data.get("first_visit", true))
 
 	# /talk also returns mood + suspicion for this character bubble.
 	_set_suspicion_display(float(data.get("suspicion", 0.0)))
 	var mood = data.get("mood", "neutral")
 	_set_mood(mood)
 
-	# Load and display existing chat history before showing the new opener.
-	await _load_and_display_history()
+	# Only show history on return visits. The current opener is already persisted
+	# as the last history entry, so exclude it — it will be shown by _present_npc_reply.
+	if not first_visit:
+		await _load_and_display_history(true)
 
 	if opener != "":
 		await _present_npc_reply(opener, PackedByteArray(), str(mood))
 	_re_enable_input()
 
-func _load_and_display_history():
+func _load_and_display_history(exclude_last: bool = false):
 	var client = HTTPClient.new()
 	var error = client.connect_to_host(API_HOST, API_PORT)
 	if error != OK:
@@ -579,9 +582,14 @@ func _load_and_display_history():
 	if typeof(history) != TYPE_ARRAY or history.size() == 0:
 		return
 
+	# Drop the last entry when it is the current opener already saved by persist.
+	var display_history: Array = history.slice(0, history.size() - 1) if exclude_last else history
+	if display_history.size() == 0:
+		return
+
 	var npc_name = NPC_NAMES.get(npc_id, npc_id)
 	dialogue_text.append_text(" Previous conversation \n")
-	for entry in history:
+	for entry in display_history:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var role = str(entry.get("role", ""))

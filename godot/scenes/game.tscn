@@ -18,6 +18,7 @@
 [ext_resource type="Texture2D" uid="uid://c6khl0pm2ih15" path="res://assets/characters/Adam_idle_anim_16x16.png" id="16_ca42v"]
 [ext_resource type="Texture2D" uid="uid://c26npuknew8s" path="res://assets/characters/Bob_phone_16x16.png" id="17_rysoc"]
 [ext_resource type="Script" uid="uid://80jsbmercw67" path="res://scripts/music_toggle_button.gd" id="18_mute"]
+[ext_resource type="Script" path="res://scripts/game_music_loop.gd" id="19_loop"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_lnu2h"]
 texture = ExtResource("2_yqjtg")
@@ -1388,6 +1389,7 @@ animations = [{
 radius = 4.343361
 
 [node name="Game" type="Node2D" unique_id=428515844]
+script = ExtResource("19_loop")
 
 [node name="BackgroundMusic" type="AudioStreamPlayer" parent="." unique_id=661545925]
 stream = ExtResource("13_amb00")

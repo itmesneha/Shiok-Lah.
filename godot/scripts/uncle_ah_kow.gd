@@ -21,6 +21,10 @@ func _on_player_entered(body):
 	if body.name == "Player":
 		player_nearby = true
 		_ensure_overlay_label()
+		if _is_locked():
+			_overlay_label.text = "Secret extracted"
+		else:
+			_overlay_label.text = "Press E to interact"
 		_overlay_label.visible = true
 		_update_overlay_position()
 
@@ -31,7 +35,7 @@ func _on_player_exited(body):
 			_overlay_label.visible = false
 
 func _unhandled_input(event):
-	if player_nearby and not in_dialogue and event.is_action_pressed("interact"):
+	if player_nearby and not in_dialogue and not _is_locked() and event.is_action_pressed("interact"):
 		start_dialogue()
 		get_viewport().set_input_as_handled()
 
@@ -49,8 +53,15 @@ func start_dialogue():
 func _on_conversation_ended():
 	in_dialogue = false
 	if player_nearby and is_instance_valid(_overlay_label):
+		if _is_locked():
+			_overlay_label.text = "Secret extracted"
+		else:
+			_overlay_label.text = "Press E to interact"
 		_overlay_label.visible = true
 		_update_overlay_position()
+
+func _is_locked() -> bool:
+	return GameState.is_secret_extracted("ah_kow")
 
 func _ensure_overlay_label():
 	if is_instance_valid(_overlay_label):

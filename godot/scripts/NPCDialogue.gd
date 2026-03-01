@@ -580,7 +580,7 @@ func _load_and_display_history():
 		return
 
 	var npc_name = NPC_NAMES.get(npc_id, npc_id)
-	dialogue_text.append_text("[color=#888888]── Previous conversation ──[/color]\n")
+	dialogue_text.append_text(" Previous conversation \n")
 	for entry in history:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
@@ -592,7 +592,7 @@ func _load_and_display_history():
 			dialogue_text.append_text("[color=cyan]You:[/color] " + content + "\n")
 		elif role == "assistant":
 			dialogue_text.append_text("[color=yellow]" + npc_name + ":[/color] " + content + "\n")
-	dialogue_text.append_text("[color=#888888]── Continuing... ──[/color]\n")
+	dialogue_text.append_text(" Continuing... \n")
 
 
 func _apply_state_snapshot(game_state: Dictionary):

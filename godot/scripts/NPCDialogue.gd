@@ -18,6 +18,7 @@ var mic_player: AudioStreamPlayer
 var is_recording: bool = false
 var transcript: String = ""
 var ptt_submit_pending: bool = false
+var ws_connect_start_ms: int = 0
 
 const VOXTRAL_SAMPLE_RATE := 16000
 const WS_URL := "ws://127.0.0.1:8000/api/voice/transcribe/realtime"
@@ -70,11 +71,19 @@ func _ready():
 
 func _setup_mic_bus():
 	ProjectSettings.set_setting("audio/driver/enable_input", true)
-	var bus_idx = AudioServer.bus_count
-	AudioServer.add_bus(bus_idx)
-	AudioServer.set_bus_name(bus_idx, "MicCapture")
-	AudioServer.set_bus_mute(bus_idx, true)  # don't play mic back through speakers
+	# Reuse the existing bus if it was left over from a previous dialogue session.
+	# Always adding a new bus means mic_player routes to the first "MicCapture"
+	# while mic_capture ends up on the latest one — different buses, so no audio captured.
+	var bus_idx = AudioServer.get_bus_index("MicCapture")
+	if bus_idx == -1:
+		bus_idx = AudioServer.bus_count
+		AudioServer.add_bus(bus_idx)
+		AudioServer.set_bus_name(bus_idx, "MicCapture")
+		AudioServer.set_bus_mute(bus_idx, true)
 
+	# Replace the capture effect so we get a clean buffer each session.
+	while AudioServer.get_bus_effect_count(bus_idx) > 0:
+		AudioServer.remove_bus_effect(bus_idx, 0)
 	var effect = AudioEffectCapture.new()
 	effect.buffer_length = 0.1
 	AudioServer.add_bus_effect(bus_idx, effect)
@@ -88,9 +97,7 @@ func _setup_mic_bus():
 
 func _start_recording():
 	if is_waiting or is_recording:
-		print("[MIC] _start_recording skipped — is_waiting=", is_waiting, " is_recording=", is_recording)
 		return
-	print("[MIC] Starting recording, connecting to ", WS_URL)
 	ptt_submit_pending = false
 	transcript = ""
 	player_input.text = ""
@@ -98,19 +105,21 @@ func _start_recording():
 	is_recording = true
 	if mic_capture:
 		mic_capture.clear_buffer()
+	# Close any existing connection before opening a new one.
+	# Leaving the old peer open causes the new handshake to hang in CONNECTING.
+	var old_state = ws.get_ready_state()
+	if old_state != WebSocketPeer.STATE_CLOSED:
+		ws.close()
 	ws = WebSocketPeer.new()
-	var err = ws.connect_to_url(WS_URL)
-	print("[MIC] ws.connect_to_url error code: ", err)
+	ws_connect_start_ms = Time.get_ticks_msec()
+	ws.connect_to_url(WS_URL)
 
 func _stop_recording():
 	is_recording = false
-	player_input.placeholder_text = "Type a message..."
-	var state = ws.get_ready_state()
-	if state == WebSocketPeer.STATE_OPEN:
+	player_input.placeholder_text = "Hold Shift+Space to speak, or type here..."
+	if ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		ws.send_text("STOP")
-	elif state == WebSocketPeer.STATE_CONNECTING:
-		ws.poll()
-		ws.send_text("STOP")
+	# If still CONNECTING, _process() will send STOP as soon as the handshake completes.
 
 func _input(event):
 	if Input.is_action_just_pressed("ui_cancel"):
@@ -121,9 +130,11 @@ func _input(event):
 			"win": false,
 			"loss_reason": "Manual test popup"
 		})
-	# Push-to-talk: hold Shift+Space to record, release to auto-submit transcript
-	if event is InputEventKey and event.keycode == KEY_SPACE and event.shift_pressed and not event.echo and not is_waiting:
-		if event.pressed and not is_recording:
+	# Push-to-talk: hold Shift+Space to record, release to auto-submit transcript.
+	# shift_pressed is only checked on press; release works regardless of Shift state
+	# so that releasing Shift before Space still stops recording correctly.
+	if event is InputEventKey and event.keycode == KEY_SPACE and not event.echo and not is_waiting:
+		if event.pressed and event.shift_pressed and not is_recording:
 			_start_recording()
 			get_viewport().set_input_as_handled()
 		elif not event.pressed and is_recording:
@@ -631,7 +642,6 @@ func _process(_delta: float):
 	var pre_poll_state = ws.get_ready_state()
 	if pre_poll_state == WebSocketPeer.STATE_CLOSED:
 		if is_recording:
-			print("[MIC] WS CLOSED while is_recording=true — backend rejected the connection")
 			is_recording = false
 		if ptt_submit_pending:
 			ptt_submit_pending = false
@@ -646,12 +656,20 @@ func _process(_delta: float):
 	var ws_state = ws.get_ready_state()  # re-read after poll so state is current
 
 	if pre_poll_state == WebSocketPeer.STATE_CONNECTING and ws_state == WebSocketPeer.STATE_OPEN:
-		print("[MIC] WS handshake complete — now OPEN")
+		# Discard audio buffered during the handshake delay so we only send fresh speech.
+		if mic_capture:
+			mic_capture.clear_buffer()
+		# If the user released Shift+Space before the handshake finished, send STOP now.
+		if not is_recording:
+			ws.send_text("STOP")
 
-	# Diagnostics: print every frame while the mic is active so we can see what's blocking
-	if is_recording:
-		var dbg_frames = mic_capture.get_frames_available() if mic_capture else -1
-		print("[MIC TICK] ws=", ws_state, " pcm_active=", pcm_stream_active, " frames=", dbg_frames)
+	# Connect timeout: if handshake takes >4 s, abort so the user can try again.
+	if ws_state == WebSocketPeer.STATE_CONNECTING and Time.get_ticks_msec() - ws_connect_start_ms > 4000:
+		is_recording = false
+		ptt_submit_pending = false
+		ws.close()
+		player_input.placeholder_text = "Hold Shift+Space to speak, or type here..."
+		return
 
 	# Send mic samples while recording.
 	# NPC audio plays on the Master/output bus; mic capture is on the isolated "MicCapture" bus,
@@ -675,13 +693,11 @@ func _process(_delta: float):
 				pos += step
 			if pcm_bytes.size() > 0:
 				ws.send(pcm_bytes)
-				print("[MIC] sent ", pcm_bytes.size(), " bytes")
 
 
 	# Handle incoming transcription events
 	while ws.get_available_packet_count() > 0:
 		var raw = ws.get_packet().get_string_from_utf8()
-		print("[MIC] WS packet: ", raw)
 		var json = JSON.new()
 		if json.parse(raw) != OK:
 			continue
@@ -689,10 +705,8 @@ func _process(_delta: float):
 		match msg.get("type", ""):
 			"delta":
 				transcript += str(msg.get("text", ""))
-				print("[MIC] delta → transcript so far: ", transcript)
 				player_input.text = transcript
 			"done":
-				print("[MIC] done received")
 				is_recording = false
 				ws.close()
 				if ptt_submit_pending:
@@ -703,7 +717,6 @@ func _process(_delta: float):
 					else:
 						player_input.placeholder_text = "Hold Shift+Space to speak, or type here..."
 			"error":
-				print("[MIC] error: ", msg.get("message", ""))
 				is_recording = false
 				ptt_submit_pending = false
 				ws.close()

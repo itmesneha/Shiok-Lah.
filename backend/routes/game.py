@@ -235,6 +235,21 @@ async def get_state(session_id: str):
     )
 
 
+@router.get("/history/{session_id}/{character_id}")
+async def get_history(session_id: str, character_id: str):
+    """Return conversation history for a specific character bubble."""
+    try:
+        bubble = state_manager.get_bubble(session_id, character_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Character bubble not found: {session_id}/{character_id}")
+    return {
+        "session_id": session_id,
+        "character_id": character_id,
+        "history": bubble["history"],
+        "visit_count": bubble["visit_count"],
+    }
+
+
 @router.post("/reset")
 async def reset(req: StartGameRequest):
     """Reset a game session."""

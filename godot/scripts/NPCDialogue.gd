@@ -40,6 +40,7 @@ const NPC_TYPEWRITER_DELAY := 0.02
 const API_HOST := "127.0.0.1"
 const API_PORT := 8000
 const API_MESSAGE_PATH := "/api/game/message"
+const API_HISTORY_PATH := "/api/game/history/"
 const GAME_OVER_POPUP_SCENE := preload("res://scenes/GameOverPopup.tscn")
 const START_MENU_SCENE_PATH := "res://scenes/start_screen.tscn"
 const TTS_PCM_SAMPLE_RATE := 22050
@@ -428,7 +429,7 @@ func _initialize_dialogue_session():
 	add_child(http)
 	http.request_completed.connect(_on_state_checked.bind(http))
 	http.request(
-		"http://localhost:8000/api/game/state/" + GameState.session_id,
+		"http://127.0.0.1:8000/api/game/state/" + GameState.session_id,
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_GET
 	)
@@ -513,14 +514,86 @@ func _on_talk_started(result, response_code, headers, body, http):
 	
 	# /talk returns immediate dialogue opener in JSON.
 	var opener = str(data.get("dialogue", ""))
-	
+
 	# /talk also returns mood + suspicion for this character bubble.
 	_set_suspicion_display(float(data.get("suspicion", 0.0)))
 	var mood = data.get("mood", "neutral")
 	_set_mood(mood)
+
+	# Load and display existing chat history before showing the new opener.
+	await _load_and_display_history()
+
 	if opener != "":
 		await _present_npc_reply(opener, PackedByteArray(), str(mood))
 	_re_enable_input()
+
+func _load_and_display_history():
+	var client = HTTPClient.new()
+	var error = client.connect_to_host(API_HOST, API_PORT)
+	if error != OK:
+		return
+
+	while client.get_status() == HTTPClient.STATUS_RESOLVING or client.get_status() == HTTPClient.STATUS_CONNECTING:
+		client.poll()
+		await get_tree().process_frame
+
+	if client.get_status() != HTTPClient.STATUS_CONNECTED:
+		return
+
+	error = client.request(
+		HTTPClient.METHOD_GET,
+		API_HISTORY_PATH + GameState.session_id + "/" + npc_id,
+		["Accept: application/json"]
+	)
+	if error != OK:
+		client.close()
+		return
+
+	while client.get_status() == HTTPClient.STATUS_REQUESTING:
+		client.poll()
+		await get_tree().process_frame
+
+	if client.get_response_code() != 200:
+		client.close()
+		return
+
+	var body_bytes = PackedByteArray()
+	while client.get_status() == HTTPClient.STATUS_BODY:
+		client.poll()
+		var chunk = client.read_response_body_chunk()
+		if chunk.size() > 0:
+			body_bytes.append_array(chunk)
+		else:
+			await get_tree().process_frame
+
+	client.close()
+
+	var json = JSON.new()
+	if json.parse(body_bytes.get_string_from_utf8()) != OK:
+		return
+	var data = json.get_data()
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+
+	var history = data.get("history", [])
+	if typeof(history) != TYPE_ARRAY or history.size() == 0:
+		return
+
+	var npc_name = NPC_NAMES.get(npc_id, npc_id)
+	dialogue_text.append_text("[color=#888888]── Previous conversation ──[/color]\n")
+	for entry in history:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var role = str(entry.get("role", ""))
+		var content = _sanitize_display_text(str(entry.get("content", "")))
+		if content == "":
+			continue
+		if role == "user":
+			dialogue_text.append_text("[color=cyan]You:[/color] " + content + "\n")
+		elif role == "assistant":
+			dialogue_text.append_text("[color=yellow]" + npc_name + ":[/color] " + content + "\n")
+	dialogue_text.append_text("[color=#888888]── Continuing... ──[/color]\n")
+
 
 func _apply_state_snapshot(game_state: Dictionary):
 	var characters = game_state.get("characters", [])

@@ -47,7 +47,9 @@ func start_dialogue():
 	in_dialogue = true
 	if is_instance_valid(_overlay_label):
 		_overlay_label.visible = false
-	get_node("/root/Game/Player").can_move = false
+	var player = get_node_or_null("/root/Game/Player")
+	if player:
+		player.can_move = false
 	DialogueManager.start_conversation("ah_kow")
 
 func _on_conversation_ended():

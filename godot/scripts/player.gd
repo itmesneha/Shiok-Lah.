@@ -6,6 +6,11 @@ const SPEED = 130.0
 @onready var sprite = $AnimatedSprite2D
 
 func _physics_process(_delta: float) -> void:
+	if not can_move:
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
+
 	# Get the input vector
 	var direction := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	

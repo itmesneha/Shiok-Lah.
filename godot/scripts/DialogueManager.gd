@@ -16,5 +16,7 @@ func start_conversation(npc_id: String):
 
 func end_conversation():
 	conversation_open = false
-	get_node("/root/Game/Player").can_move = true
-	emit_signal("conversation_ended")
+	var player = get_node_or_null("/root/Game/Player")
+	if player:
+		player.can_move = true
+	conversation_ended.emit()

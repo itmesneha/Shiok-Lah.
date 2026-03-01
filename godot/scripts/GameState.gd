@@ -40,10 +40,10 @@ func _ready():
 func collect_secret(npc_id: String):
 	if npc_id not in collected_secrets:
 		collected_secrets.append(npc_id)
-		emit_signal("secret_collected", npc_id)
-		
+		secret_collected.emit(npc_id)
+
 	if collected_secrets.size() == ALL_SECRETS.size():
-		emit_signal("all_secrets_collected")  # triggers win screen
+		all_secrets_collected.emit()  # triggers win screen
 
 func update_npc_state(npc_id: String, state: Dictionary):
 	npc_states[npc_id] = state

@@ -17,8 +17,7 @@ var mic_capture: AudioEffectCapture
 var mic_player: AudioStreamPlayer
 var is_recording: bool = false
 var transcript: String = ""
-var mic_button: Button
-var user_has_typed: bool = false
+var ptt_submit_pending: bool = false
 
 const VOXTRAL_SAMPLE_RATE := 16000
 const WS_URL := "ws://127.0.0.1:8000/api/voice/transcribe/realtime"
@@ -29,7 +28,6 @@ const WS_URL := "ws://127.0.0.1:8000/api/voice/transcribe/realtime"
 @onready var suspicion_segments = $SuspicionBar/SuspicionSegments
 @onready var suspicion_label = $SuspicionBar/SuspicionLabel
 @onready var mood_indicator = $MoodIndicator
-@onready var npc_portrait = $NPCPortrait
 
 const NPC_NAMES = {
 	"uncle_robert": "Uncle Robert",
@@ -63,10 +61,9 @@ func _ready():
 	set_process(true)
 	_set_suspicion_display(0.0)
 	player_input.text_submitted.connect(_on_message_submitted)
-	player_input.gui_input.connect(_on_player_input_key)
+	player_input.placeholder_text = "Hold Shift+Space to speak, or type here..."
 	_set_waiting(true)
 	_setup_mic_bus()
-	_setup_mic_button()
 
 	# Ensure backend session exists, then activate this NPC via /talk.
 	_initialize_dialogue_session()
@@ -89,35 +86,14 @@ func _setup_mic_bus():
 	add_child(mic_player)
 	mic_player.play()
 
-func _setup_mic_button():
-	mic_button = Button.new()
-	mic_button.text = "🎤"
-	mic_button.tooltip_text = "Click to toggle mic"
-	mic_button.custom_minimum_size = Vector2(40, 0)
-	mic_button.toggle_mode = true
-	mic_button.button_pressed = false  # starts OFF — user clicks to activate
-	var input_parent = player_input.get_parent()
-	input_parent.add_child(mic_button)
-	input_parent.move_child(mic_button, player_input.get_index() + 1)
-	mic_button.toggled.connect(_on_mic_toggled)
-
-func _on_player_input_key(event: InputEvent):
-	if event is InputEventKey and event.pressed and not event.echo:
-		user_has_typed = true
-
-func _on_mic_toggled(active: bool):
-	if active:
-		_start_recording()
-	else:
-		_stop_recording()
-
 func _start_recording():
 	if is_waiting or is_recording:
 		print("[MIC] _start_recording skipped — is_waiting=", is_waiting, " is_recording=", is_recording)
 		return
 	print("[MIC] Starting recording, connecting to ", WS_URL)
+	ptt_submit_pending = false
 	transcript = ""
-	user_has_typed = false
+	player_input.text = ""
 	player_input.placeholder_text = "🎤 Listening..."
 	is_recording = true
 	if mic_capture:
@@ -145,14 +121,22 @@ func _input(event):
 			"win": false,
 			"loss_reason": "Manual test popup"
 		})
+	# Push-to-talk: hold Shift+Space to record, release to auto-submit transcript
+	if event is InputEventKey and event.keycode == KEY_SPACE and event.shift_pressed and not event.echo and not is_waiting:
+		if event.pressed and not is_recording:
+			_start_recording()
+			get_viewport().set_input_as_handled()
+		elif not event.pressed and is_recording:
+			_stop_recording()
+			ptt_submit_pending = true
+			player_input.placeholder_text = "Processing..."
+			get_viewport().set_input_as_handled()
 
 func _on_message_submitted(message: String):
 	if message.strip_edges() == "" or is_waiting:
 		return
+	ptt_submit_pending = false
 	_stop_recording()
-	if mic_button:
-		mic_button.button_pressed = false
-	user_has_typed = false
 	transcript = ""
 	player_input.clear()
 	_set_waiting(true)
@@ -356,7 +340,7 @@ func _reset_current_round():
 		"session_id": GameState.session_id
 	})
 	var error = http.request(
-		"http://localhost:8000/api/game/reset",
+		"http://127.0.0.1:8000/api/game/reset",
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_POST,
 		body
@@ -474,7 +458,7 @@ func _start_game():
 		"session_id": GameState.session_id
 	})
 	http.request(
-		"http://localhost:8000/api/game/start",
+		"http://127.0.0.1:8000/api/game/start",
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_POST,
 		body
@@ -497,7 +481,7 @@ func _start_talk():
 		"character_id": npc_id
 	})
 	http.request(
-		"http://localhost:8000/api/game/talk",
+		"http://127.0.0.1:8000/api/game/talk",
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_POST,
 		body
@@ -649,6 +633,13 @@ func _process(_delta: float):
 		if is_recording:
 			print("[MIC] WS CLOSED while is_recording=true — backend rejected the connection")
 			is_recording = false
+		if ptt_submit_pending:
+			ptt_submit_pending = false
+			var pending_text = player_input.text.strip_edges()
+			if pending_text != "":
+				_on_message_submitted(pending_text)
+			else:
+				player_input.placeholder_text = "Hold Shift+Space to speak, or type here..."
 		return
 
 	ws.poll()
@@ -699,20 +690,24 @@ func _process(_delta: float):
 			"delta":
 				transcript += str(msg.get("text", ""))
 				print("[MIC] delta → transcript so far: ", transcript)
-				# Don't overwrite if the user has started typing manually
-				if not user_has_typed:
-					player_input.text = transcript
+				player_input.text = transcript
 			"done":
-				# Transcription finished — leave text in the field for the user to
-				# review and submit with Enter. Don't auto-submit.
 				print("[MIC] done received")
 				is_recording = false
 				ws.close()
+				if ptt_submit_pending:
+					ptt_submit_pending = false
+					var done_text = player_input.text.strip_edges()
+					if done_text != "":
+						_on_message_submitted(done_text)
+					else:
+						player_input.placeholder_text = "Hold Shift+Space to speak, or type here..."
 			"error":
 				print("[MIC] error: ", msg.get("message", ""))
 				is_recording = false
+				ptt_submit_pending = false
 				ws.close()
-				player_input.placeholder_text = "Type a message..."
+				player_input.placeholder_text = "Hold Shift+Space to speak, or type here..."
 
 func _drain_pcm_queue():
 	_ensure_pcm_stream()
@@ -794,7 +789,7 @@ func _request_voice_line(text: String, mood: String):
 		"mood": mood
 	})
 	http.request(
-		"http://localhost:8000/api/voice/speak",
+		"http://127.0.0.1:8000/api/voice/speak",
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_POST,
 		body

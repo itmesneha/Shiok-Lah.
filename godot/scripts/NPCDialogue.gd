@@ -11,6 +11,18 @@ var pcm_pending_samples: Array[float] = []
 var pcm_sample_read_index: int = 0
 var pcm_stream_active: bool = false
 
+# ── Voice input (Voxtral realtime transcription) ──
+var ws := WebSocketPeer.new()
+var mic_capture: AudioEffectCapture
+var mic_player: AudioStreamPlayer
+var is_recording: bool = false
+var transcript: String = ""
+var mic_button: Button
+var user_has_typed: bool = false
+
+const VOXTRAL_SAMPLE_RATE := 16000
+const WS_URL := "ws://127.0.0.1:8000/api/voice/transcribe/realtime"
+
 @onready var dialogue_text = $DialoguePanel/VBoxContainer/DialogueText
 @onready var npc_name_label = $DialoguePanel/VBoxContainer/NPCNameLabel
 @onready var player_input = $DialoguePanel/VBoxContainer/PlayerInput
@@ -50,10 +62,78 @@ func _ready():
 	set_process(true)
 	_set_suspicion_display(0.0)
 	player_input.text_submitted.connect(_on_message_submitted)
+	player_input.gui_input.connect(_on_player_input_key)
 	_set_waiting(true)
-	
+	_setup_mic_bus()
+	_setup_mic_button()
+
 	# Ensure backend session exists, then activate this NPC via /talk.
 	_initialize_dialogue_session()
+
+func _setup_mic_bus():
+	ProjectSettings.set_setting("audio/driver/enable_input", true)
+	var bus_idx = AudioServer.bus_count
+	AudioServer.add_bus(bus_idx)
+	AudioServer.set_bus_name(bus_idx, "MicCapture")
+	AudioServer.set_bus_mute(bus_idx, true)  # don't play mic back through speakers
+
+	var effect = AudioEffectCapture.new()
+	effect.buffer_length = 0.1
+	AudioServer.add_bus_effect(bus_idx, effect)
+	mic_capture = effect
+
+	mic_player = AudioStreamPlayer.new()
+	mic_player.stream = AudioStreamMicrophone.new()
+	mic_player.bus = "MicCapture"
+	add_child(mic_player)
+	mic_player.play()
+
+func _setup_mic_button():
+	mic_button = Button.new()
+	mic_button.text = "🎤"
+	mic_button.tooltip_text = "Click to toggle mic"
+	mic_button.custom_minimum_size = Vector2(40, 0)
+	mic_button.toggle_mode = true
+	mic_button.button_pressed = false  # starts OFF — user clicks to activate
+	var input_parent = player_input.get_parent()
+	input_parent.add_child(mic_button)
+	input_parent.move_child(mic_button, player_input.get_index() + 1)
+	mic_button.toggled.connect(_on_mic_toggled)
+
+func _on_player_input_key(event: InputEvent):
+	if event is InputEventKey and event.pressed and not event.echo:
+		user_has_typed = true
+
+func _on_mic_toggled(active: bool):
+	if active:
+		_start_recording()
+	else:
+		_stop_recording()
+
+func _start_recording():
+	if is_waiting or is_recording:
+		print("[MIC] _start_recording skipped — is_waiting=", is_waiting, " is_recording=", is_recording)
+		return
+	print("[MIC] Starting recording, connecting to ", WS_URL)
+	transcript = ""
+	user_has_typed = false
+	player_input.placeholder_text = "🎤 Listening..."
+	is_recording = true
+	if mic_capture:
+		mic_capture.clear_buffer()
+	ws = WebSocketPeer.new()
+	var err = ws.connect_to_url(WS_URL)
+	print("[MIC] ws.connect_to_url error code: ", err)
+
+func _stop_recording():
+	is_recording = false
+	player_input.placeholder_text = "Type a message..."
+	var state = ws.get_ready_state()
+	if state == WebSocketPeer.STATE_OPEN:
+		ws.send_text("STOP")
+	elif state == WebSocketPeer.STATE_CONNECTING:
+		ws.poll()
+		ws.send_text("STOP")
 
 func _input(event):
 	if Input.is_action_just_pressed("ui_cancel"):
@@ -68,12 +148,17 @@ func _input(event):
 func _on_message_submitted(message: String):
 	if message.strip_edges() == "" or is_waiting:
 		return
+	_stop_recording()
+	if mic_button:
+		mic_button.button_pressed = false
+	user_has_typed = false
+	transcript = ""
 	player_input.clear()
 	_set_waiting(true)
-	
+
 	# Show player message
 	dialogue_text.append_text("\n[color=cyan]You:[/color] " + message + "\n")
-	
+
 	await _send_message(message)
 
 func _send_message(message: String):
@@ -385,7 +470,7 @@ func _on_talk_started(result, response_code, headers, body, http):
 	_set_mood(mood)
 	if opener != "":
 		await _present_npc_reply(opener, PackedByteArray(), str(mood))
-	_set_waiting(false)
+	_re_enable_input()
 
 func _apply_state_snapshot(game_state: Dictionary):
 	var characters = game_state.get("characters", [])
@@ -463,10 +548,16 @@ func _ensure_pcm_stream():
 		voice_player.play()
 	voice_playback = voice_player.get_stream_playback() as AudioStreamGeneratorPlayback
 
+func _on_npc_audio_finished():
+	if mic_capture:
+		mic_capture.clear_buffer()
+
 func _queue_pcm_chunk(pcm_chunk: PackedByteArray):
 	if pcm_chunk.size() == 0:
 		return
 	_ensure_pcm_stream()
+	if not pcm_stream_active and mic_capture:
+		mic_capture.clear_buffer()  # clear before NPC starts speaking
 	pcm_stream_active = true
 	_decode_and_queue_pcm(pcm_chunk)
 	_drain_pcm_queue()
@@ -491,9 +582,82 @@ func _decode_and_queue_pcm(pcm_chunk: PackedByteArray):
 		index_byte += 2
 
 func _process(_delta: float):
-	if not pcm_stream_active:
+	var was_streaming = pcm_stream_active
+	if pcm_stream_active:
+		_drain_pcm_queue()
+	if was_streaming and not pcm_stream_active:
+		_on_npc_audio_finished()
+
+	# ── Voxtral WebSocket ──
+	var pre_poll_state = ws.get_ready_state()
+	if pre_poll_state == WebSocketPeer.STATE_CLOSED:
+		if is_recording:
+			print("[MIC] WS CLOSED while is_recording=true — backend rejected the connection")
+			is_recording = false
 		return
-	_drain_pcm_queue()
+
+	ws.poll()
+	var ws_state = ws.get_ready_state()  # re-read after poll so state is current
+
+	if pre_poll_state == WebSocketPeer.STATE_CONNECTING and ws_state == WebSocketPeer.STATE_OPEN:
+		print("[MIC] WS handshake complete — now OPEN")
+
+	# Diagnostics: print every frame while the mic is active so we can see what's blocking
+	if is_recording:
+		var dbg_frames = mic_capture.get_frames_available() if mic_capture else -1
+		print("[MIC TICK] ws=", ws_state, " pcm_active=", pcm_stream_active, " frames=", dbg_frames)
+
+	# Send mic samples while recording.
+	# NPC audio plays on the Master/output bus; mic capture is on the isolated "MicCapture" bus,
+	# so there is no feedback regardless of NPC playback state — no need to gate on pcm_stream_active.
+	if is_recording and ws_state == WebSocketPeer.STATE_OPEN and mic_capture != null:
+		var frames_available = mic_capture.get_frames_available()
+		if frames_available > 0:
+			var frames = mic_capture.get_buffer(frames_available)
+			var engine_rate = float(AudioServer.get_mix_rate())
+			var step = engine_rate / float(VOXTRAL_SAMPLE_RATE)
+			var pcm_bytes := PackedByteArray()
+			var pos := 0.0
+			while pos < frames.size():
+				var frame: Vector2 = frames[int(pos)]
+				var mono := clampf((frame.x + frame.y) * 0.5, -1.0, 1.0)
+				var s := int(mono * 32767.0)
+				if s < 0:
+					s += 65536
+				pcm_bytes.append(s & 0xFF)
+				pcm_bytes.append((s >> 8) & 0xFF)
+				pos += step
+			if pcm_bytes.size() > 0:
+				ws.send(pcm_bytes)
+				print("[MIC] sent ", pcm_bytes.size(), " bytes")
+
+
+	# Handle incoming transcription events
+	while ws.get_available_packet_count() > 0:
+		var raw = ws.get_packet().get_string_from_utf8()
+		print("[MIC] WS packet: ", raw)
+		var json = JSON.new()
+		if json.parse(raw) != OK:
+			continue
+		var msg = json.get_data()
+		match msg.get("type", ""):
+			"delta":
+				transcript += str(msg.get("text", ""))
+				print("[MIC] delta → transcript so far: ", transcript)
+				# Don't overwrite if the user has started typing manually
+				if not user_has_typed:
+					player_input.text = transcript
+			"done":
+				# Transcription finished — leave text in the field for the user to
+				# review and submit with Enter. Don't auto-submit.
+				print("[MIC] done received")
+				is_recording = false
+				ws.close()
+			"error":
+				print("[MIC] error: ", msg.get("message", ""))
+				is_recording = false
+				ws.close()
+				player_input.placeholder_text = "Type a message..."
 
 func _drain_pcm_queue():
 	_ensure_pcm_stream()

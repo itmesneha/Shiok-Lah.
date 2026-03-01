@@ -3,7 +3,7 @@ Conversation Graph — single LangGraph StateGraph that handles both
 "user clicked a character" (opener) and "user sent a message" (conversation).
 
 Graph structure:
-  load_state → preflight → (error? → persist → END)
+  load_state → preflight → (error or game_over? → persist → END)
                          → gate
                             ↓                    ↓
                     character_node          suspicion_node   ← PARALLEL

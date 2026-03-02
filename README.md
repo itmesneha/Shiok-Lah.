@@ -1,8 +1,9 @@
 # Shiok Lah!
 
-A conversational social-deduction game set in Singapore hawker centres. You play as an undercover food journalist trying to extract secret recipes from three stubborn hawker stall owners — without getting caught.
+A conversational social-deduction game set in a Singapore hawker centre. You play as an undercover food journalist trying to extract secret recipes from three stubborn hawker stall owners — without getting caught. A hawker-center heist game powered by Agentic AI!
 
-You can check out the demo video here - [![SHIOK-LAH DEMO](https://img.youtube.com/vi/IKr7yX__eQw/0.jpg)](https://www.youtube.com/watch?v=IKr7yX__eQw)
+Demo Video:
+[![SHIOK-LAH DEMO](https://img.youtube.com/vi/IKr7yX__eQw/0.jpg)](https://www.youtube.com/watch?v=IKr7yX__eQw)
 
 
 <img width="1468" height="794" alt="Screenshot 2026-03-01 at 3 19 03 PM" src="https://github.com/user-attachments/assets/b73e4a1f-3b8a-4371-bccc-0a209b70bb76" />

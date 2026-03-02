@@ -2,6 +2,12 @@
 
 A conversational social-deduction game set in Singapore hawker centres. You play as an undercover food journalist trying to extract secret recipes from three stubborn hawker stall owners — without getting caught.
 
+You can check out the demo video here - https://youtu.be/IKr7yX__eQw
+
+<img width="1468" height="794" alt="Screenshot 2026-03-01 at 3 19 03 PM" src="https://github.com/user-attachments/assets/b73e4a1f-3b8a-4371-bccc-0a209b70bb76" />
+
+<img width="1468" height="794" alt="Screenshot 2026-03-01 at 3 18 51 PM" src="https://github.com/user-attachments/assets/a7331947-0312-45cc-967e-5d609fe1968f" />
+
 ---
 
 ## Table of Contents
